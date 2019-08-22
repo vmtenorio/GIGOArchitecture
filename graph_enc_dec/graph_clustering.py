@@ -6,6 +6,13 @@ from scipy.sparse.csgraph import dijkstra
 import matplotlib.pyplot as plt
 from pygsp.graphs import Graph
 
+# Upsampling Method Constants
+NONE = 0
+REG =  1
+NO_A = 2
+BIN =  3
+WEI =  4
+
 class MultiRessGraphClustering():
     # k represents the size of the root cluster
     def __init__(self, G, n_clust, k, algorithm='spectral_clutering', 
@@ -23,7 +30,11 @@ class MultiRessGraphClustering():
         self.hier_A = []
         self.cluster_alg(G)
         
-        for t in n_clust[:-1]:
+        for t in n_clust:
+            if t == G.N:
+                self.labels.append(np.arange(1,G.N+1))
+                self.clusters_size.append(G.N)
+                continue
             # t represent de relative distance, so it is necessary to obtain the 
             # real desired distance
             if method == 'distance':
@@ -31,8 +42,7 @@ class MultiRessGraphClustering():
             level_labels = fcluster(self.Z, t, criterion=method)
             self.labels.append(level_labels)
             self.clusters_size.append(np.unique(level_labels).size)
-        self.labels.append(np.arange(1,G.W.shape[0]+1))
-        self.clusters_size.append(G.W.shape[0])
+        
 
     def distance_clustering(self, G):
         D = dijkstra(G.W)
@@ -47,7 +57,7 @@ class MultiRessGraphClustering():
 
     def plot_dendrogram(self):
         plt.figure()
-        dendrogram(self.Z, orientation='left', no_labels=True)
+        dendrogram(self.Z, orientation='left', no_labels=False)
         plt.gca().tick_params(labelsize=16)
         plt.show()
 
@@ -69,17 +79,27 @@ class MultiRessGraphClustering():
         return self.descendance
 
     def compute_hierarchy_ascendance(self):
-        for i in range(len(self.clusters_size)-1,0,-1):
+        for i in range(len(self.clusters_size)-1):
             self.ascendance[i] = []
+            for j in range(self.clusters_size[i]):
+                indexes = np.where(self.labels[i] == j+1)
+                parent_id = self.labels[i+1][indexes][0]
+                self.ascendance[i].append(parent_id)
+        return self.ascendance
+
 
     def compute_hierarchy_A(self, up_method):
-        if up_method == 'no_A' or up_method == None or up_method == 'original':
+        if up_method == NO_A or up_method == None or up_method == REG:
             return
 
         A = self.G.W.todense()
         for i in range(len(self.clusters_size)):
             N = self.clusters_size[i]
-            self.hier_A.append(np.zeros((N, N)))
+            if N == self.G.N:
+                self.hier_A.append(A)
+                continue
+            else:
+                self.hier_A.append(np.zeros((N, N)))
 
             inter_clust_links = 0
             for j in range(N-1):
@@ -88,18 +108,18 @@ class MultiRessGraphClustering():
                     nodes_c2 = np.where(self.labels[i] == k+1)[0]
                     sub_A = A[nodes_c1,:][:,nodes_c2]
 
-                    if up_method == 'binary' and np.sum(sub_A) > 0:
+                    if up_method == BIN and np.sum(sub_A) > 0:
                         self.hier_A[i][j,k] = self.hier_A[i][k,j] = 1
-                    if up_method == 'weighted':
+                    if up_method == WEI:
                         self.hier_A[i][j,k] = np.sum(sub_A)
                         self.hier_A[i][k,j] = self.hier_A[i][j,k]
                         inter_clust_links += np.sum(sub_A)
-            if up_method == 'weighted':
+            if up_method == WEI:
                 self.hier_A[i] = self.hier_A[i]/inter_clust_links
         return self.hier_A
 
     def plot_labels(self, show=True):
-        n_labels = len(self.labels)-1
+        n_labels = len(self.labels)
         _, axes= plt.subplots(1, n_labels)
         self.G.set_coordinates()
         for i in range(n_labels):
