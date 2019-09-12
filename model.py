@@ -34,7 +34,7 @@ class Model:
         Train the model
         """
         n_samples = data.shape[0]
-        
+
         num_steps = int(n_samples / self.batch_size)
 
         self.class_type = len(labels.shape) == 1    # If labels just have the
@@ -81,9 +81,11 @@ class Model:
         Returns loss and accuracy
         """
         with torch.no_grad():
+            print(data)
             y_pred = self.arch(data)
             print(y_pred)
             print("Labels: " + str(labels))
+            print("Y_pred shape:" + str(y_pred.shape))
             if self.tb_log and it != None:
                 self.writer.add_histogram('pred/y_pred', y_pred, it)
                 c = 0
@@ -95,6 +97,8 @@ class Model:
 
             if self.class_type:
                 predictions, index = y_pred.max(1) # Max along dimension 1. Removes dimension 1 (cols)
+                print("Index: " + str(index))
+                print("Predictions: " + str(predictions))
 
                 # Item function returns the scalar in a 1 element tensor
                 num_ok = torch.sum(torch.eq(index, labels)).item()

@@ -44,14 +44,14 @@ def create_SBMc(N_nodes, N_comm, p_ii, p_ij, mapping):
             if mapping[i] == mapping[j]:
                 # Same community
                 limit = p_ii
-                # There is a link between those two communities
-                C_graph[mapping[i], mapping[j]] = 1
-                C_graph[mapping[j], mapping[i]] = 1
             else:
                 limit = p_ij
             if np.random.rand() < limit:
                 N_graph[i,j] = 1
                 N_graph[j,i] = 1
+                # There is a link between those two communities
+                C_graph[mapping[i], mapping[j]] += 1
+                C_graph[mapping[j], mapping[i]] += 1
     return N_graph, C_graph
 
 def modify_graph(S, vals_edit):

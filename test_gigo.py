@@ -7,7 +7,7 @@ from cnngs_src import graphtools, datatools
 
 from model import Model
 
-from data_sets import GIGOMaxComm
+import data_sets
 from arch import GIGOArch
 
 # Consts
@@ -27,17 +27,18 @@ TB_LOG = True
 N_samples = 10000
 eval_freq = 4
 train_test_coef = 0.8
-limit_data = 25
 
-noise_train = False
-noise_test = False
-sigma_data = np.sqrt(1e-4)
+dataset_sel = "sourceloc"       # sourceloc or maxcomm
+
+maxdiff = 10
+limit_data = 25
+data_sym = True
 
 num_epochs = 40
 batch_size = 100
 
 # Graph parameters
-N = 128 
+N = 128
 select_graph = 'SBM'
 p_ER = 0.4
 c = 8
@@ -50,20 +51,31 @@ arch_type = 'basic'
 Ki = 5
 Ko = 2
 L = 2
-Fi = [1,32,c]
-Fo = [N,2,1]
+Fi = [1,4,c]
+Fo = [N,4,1]
 
-loss_func = nn.MSELoss()
+if dataset_sel == "sourceloc":
+    loss_func = nn.CrossEntropyLoss()
+elif dataset_sel == "maxcomm":
+    loss_func = nn.MSELoss()
+
 optimizer = "ADAM"
 learning_rate = 0.001
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.9
-nonlin = nn.LeakyReLU
+nonlin = nn.ReLU
+#nonlin = nn.Sigmoid
 
 # Define the datamodel
-dataset = GIGOMaxComm(N, c, p_ii_SBM, p_ij_SBM, N_samples, \
-                                train_test_coef, limit_data)
+if dataset_sel == "sourceloc":
+    dataset = data_sets.GIGOSourceLoc(N, c, p_ii_SBM, p_ij_SBM, N_samples, \
+                                maxdiff, train_test_coef)
+elif dataset_sel == "maxcomm":
+    dataset = data_sets.GIGOMaxComm(N, c, p_ii_SBM, p_ij_SBM, N_samples, \
+                                train_test_coef, limit_data, data_sym)
+else:
+    raise RuntimeError
 
 archit = GIGOArch(dataset.Ngraph, dataset.Cgraph, Fi, Fo, Ki, Ko, nonlin)
 
