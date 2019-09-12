@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import torch
+import sys
+sys.path.append('..')
 from cnngs_src import graphtools, datatools
 
 HOURS_A_DAY = 24

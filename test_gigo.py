@@ -5,10 +5,10 @@ import numpy as np
 
 from cnngs_src import graphtools, datatools
 
-from model import Model
+from GIGO.model import Model
 
-import data_sets
-from arch import GIGOArch
+from GIGO import data_sets
+from GIGO.arch import GIGOArch
 
 # Consts
 if os.name == 'nt':

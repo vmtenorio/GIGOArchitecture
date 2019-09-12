@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from cnngs_src import graphtools, datatools
+from .cnngs_src import graphtools, datatools
 
 from model import Model
 from data_sets import FlightData
