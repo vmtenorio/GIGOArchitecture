@@ -45,46 +45,41 @@ if __name__ == '__main__':
     start_time = time.time()
     # Create graphs
     Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, seed=SEED)
+    #Gx.plot()
+    #Gy.plot()
+    #plt.show()
+
     # Create graph signals
     data = data_sets.DiffusedSparse2GS(Gx, Gy, n_samples, L, G_params['k'])
     data.to_unit_norm()
 
-    Gx.plot()
-    Gy.plot()
-    plt.show()
-
-    sys.exit()
-
-    # TODO: create signals
-
     # For Gx
     print("Clustering Gx:")
-    cluster_x = gc.MultiRessGraphClustering(Gx, nodes_d, k=2)
-    # Remember, the structure is the same but the data is obtained differently
-    # The same sturcture can be used
-    cluster_x.compute_hierarchy_ascendance()
+    cluster_x = gc.MultiResGraphClustering(Gx, nodes_enc, k=2, up_method=ups)
     print(cluster_x.clusters_size)
-    print(cluster_x.labels)
-    print(cluster_x.ascendance)
+    print(cluster_x.ascendances)
+    print(cluster_x.Ds)
     #cluster_x.plot_dendrogram()
-    cluster_x.compute_hierarchy_A(ups)
     
     print("Clustering Gy:")
-    cluster_y = gc.MultiRessGraphClustering(Gx, nodes_u, k=2)
-    cluster_y.plot_labels()
-    cluster_y.compute_hierarchy_descendance()
-    cluster_y.compute_hierarchy_A(ups)
+    cluster_y = gc.MultiResGraphClustering(Gy, nodes_dec, k=2, up_method=ups)
     print(cluster_y.clusters_size)
-    print(cluster_y.labels)
-    print(cluster_y.descendance)
+    print(cluster_y.descendances)
+    print(cluster_y.Us)
     #cluster_y.plot_dendrogram()
+
+    #TODO: test upsamping and downsampling matrices
+    #TODO: review hier_A function
+    #TODO: review architecture (will be necessary to modify it)
+    #TODO: review fit function
+
+    sys.exit()
 
     net = architecture.GraphEncoderDecoder(feat_d, feat_u, nodes_d, nodes_u,
                                             cluster_x.ascendance, 
                                             cluster_y.descendance, cluster_x.hier_A,
                                             cluster_y.hier_A, ups, ups)
     # PENDING TO TRAIN AND EVALUATE IT!
-    # PENDING THINK ABOUT CREATING THE DATA
     print(net.model)
 
 

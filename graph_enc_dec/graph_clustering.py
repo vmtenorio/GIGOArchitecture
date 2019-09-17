@@ -13,27 +13,76 @@ NO_A = 2
 BIN =  3
 WEI =  4
 
-class MultiRessGraphClustering():
+# NOTE: maybe separate in 2 classes?
+class MultiResGraphClustering():
+    """
+    This class computes a bottom-up multiresolution hierarchichal clustering of the given
+    graph. An adjacency matrix may be estimated for each resolution level based on
+    the relations of the nodes grouped in the different clusters. Additionaly, 
+    upsampling and downsampling matrices may be estimated for going from different
+    levels of the hierarchy.s
+    """
     # k represents the size of the root cluster
-    def __init__(self, G, n_clust, k, algorithm='spectral_clutering', 
-                    method='maxclust', link_fun='average'):
+    def __init__(self, G, n_clusts, k, algorithm='spectral_clutering', 
+                    method='maxclust', link_fun='average', up_method=WEI):
+        """
+        The arguments of the constructor are:
+        """
+        # Common for Enc and Dec
         self.G = G
-        # self.clusters_size = n_clust
         self.clusters_size = []
         self.cluster_alg = getattr(self, algorithm)
         self.k = k
         self.link_fun = link_fun
         self.labels = []
         self.Z = None
-        self.descendance = {}
-        self.ascendance = {}
         self.hier_A = []
-        self.cluster_alg(G)
-        
-        for t in n_clust:
-            if t == G.N:
-                self.labels.append(np.arange(1,G.N+1))
-                self.clusters_size.append(G.N)
+
+        # Only for Enc
+        self.ascendances = []
+        self.Ds = []
+
+        # Only for Dec
+        self.descendances = []
+        self.Us = []
+    
+        self.compute_clusters(n_clusts, method)
+        self.compute_hierarchy_A(up_method)
+
+        if n_clusts[0] > n_clusts[-1]:
+            self.compute_Downs()
+        elif n_clusts[0] < n_clusts[-1]:
+            self.compute_Ups()
+
+                
+
+    def distance_clustering(self):
+        """
+        Obtain the matrix Z of distances between the different agglomeartive
+        clusters by using the distance of Dijkstra among the nodes of the graph
+        as a meassure of similarity
+        """
+        D = dijkstra(self.G.W)
+        D = D[np.triu_indices_from(D,1)]
+        self.Z = linkage(D,self.link_fun)
+
+    def spectral_clutering(self):
+        """
+        Obtain the matrix Z of distances between the different agglomeartive
+        clusters by using the first k eigenvectors of the Laplacian matrix as
+        node embeding
+        """
+        self.G.compute_laplacian()
+        self.G.compute_fourier_basis()
+        X = self.G.U[:,1:self.k]
+        self.Z = linkage(X, self.link_fun)
+
+    def compute_clusters(self, n_clusts, method):
+        self.cluster_alg()
+        for t in list(dict.fromkeys(n_clusts)):
+            if t == self.G.N:
+                self.labels.append(np.arange(1,self.G.N+1))
+                self.clusters_size.append(self.G.N)
                 continue
             # t represent de relative distance, so it is necessary to obtain the 
             # real desired distance
@@ -42,18 +91,6 @@ class MultiRessGraphClustering():
             level_labels = fcluster(self.Z, t, criterion=method)
             self.labels.append(level_labels)
             self.clusters_size.append(np.unique(level_labels).size)
-        
-
-    def distance_clustering(self, G):
-        D = dijkstra(G.W)
-        D = D[np.triu_indices_from(D,1)]
-        self.Z = linkage(D,self.link_fun)
-
-    def spectral_clutering(self, G):
-        G.compute_laplacian()
-        G.compute_fourier_basis()
-        X = G.U[:,1:self.k]
-        self.Z = linkage(X, self.link_fun)
 
     def plot_dendrogram(self):
         plt.figure()
@@ -64,7 +101,7 @@ class MultiRessGraphClustering():
     def compute_hierarchy_descendance(self):
         # Maybe descendance should be the upsampling matrices
         for i in range(len(self.clusters_size)-1):
-            self.descendance[i] = []
+            self.descendances.append([])
             # Find parent (labels i) of each child cluster (labels i+1)
             for j in range(self.clusters_size[i+1]):
                 indexes = np.where(self.labels[i+1] == j+1)
@@ -74,19 +111,43 @@ class MultiRessGraphClustering():
                     raise RuntimeError("child {} belong to {} parents".format(j,n_parents))
 
                 parent_id = self.labels[i][indexes][0]
-                self.descendance[i].append(parent_id)
+                self.descendances[i].append(parent_id)
 
-        return self.descendance
+        return self.descendances
+
+    def compute_Ups(self):
+        """
+        Compute upsampling matrices Ds
+        """
+        self.compute_hierarchy_descendance()
+        for i in range(len(self.descendances)):
+            descendance = np.asarray(self.descendances[i])
+            U = np.zeros((self.clusters_size[i+1], self.clusters_size[i]))
+            for j in range(self.clusters_size[i+1]):
+                U[j,descendance[j]-1] = 1
+            self.Us.append(U)
 
     def compute_hierarchy_ascendance(self):
         for i in range(len(self.clusters_size)-1):
-            self.ascendance[i] = []
+            self.ascendances.append([])
             for j in range(self.clusters_size[i]):
                 indexes = np.where(self.labels[i] == j+1)
                 parent_id = self.labels[i+1][indexes][0]
-                self.ascendance[i].append(parent_id)
-        return self.ascendance
+                self.ascendances[i].append(parent_id)
+        return self.ascendances
 
+    def compute_Downs(self):
+        """
+        Compute downsampling matrices Ds
+        """
+        self.compute_hierarchy_ascendance()
+        for i in range(len(self.ascendances)):
+            ascendance = np.asarray(self.ascendances[i])
+            D = np.zeros((self.clusters_size[i+1], self.clusters_size[i]))
+            for j in range(self.clusters_size[i+1]):
+                indexes = np.where(ascendance == j+1)
+                D[j,indexes] = 1
+            self.Ds.append(D)
 
     def compute_hierarchy_A(self, up_method):
         if up_method == NO_A or up_method == None or up_method == REG:
@@ -95,11 +156,11 @@ class MultiRessGraphClustering():
         A = self.G.W.todense()
         for i in range(len(self.clusters_size)):
             N = self.clusters_size[i]
-            if N == self.G.N:
-                self.hier_A.append(A)
-                continue
-            else:
-                self.hier_A.append(np.zeros((N, N)))
+            #if N == self.G.N:
+            #    self.hier_A.append(A)
+            #    continue
+            #else:
+            self.hier_A.append(np.zeros((N, N)))
 
             inter_clust_links = 0
             for j in range(N-1):

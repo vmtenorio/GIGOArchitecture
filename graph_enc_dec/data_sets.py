@@ -153,7 +153,7 @@ class DiffusedSparse2GS:
         norm = np.sqrt(np.sum(signals**2,axis=0))
         if 0 in norm:
             print("WARNING: signal with norm 0")
-            return signals
+            return None
         return signals/norm
 
     def random_sparse_S(self, n_samp, n_deltas, min_delta, max_delta):
