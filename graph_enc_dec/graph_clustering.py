@@ -30,13 +30,13 @@ class MultiResGraphClustering():
         """
         # Common for Enc and Dec
         self.G = G
-        self.clusters_size = []
+        self.sizes = []
         self.cluster_alg = getattr(self, algorithm)
         self.k = k
         self.link_fun = link_fun
         self.labels = []
         self.Z = None
-        self.hier_A = []
+        self.As = []
 
         # Only for Enc
         self.ascendances = []
@@ -46,6 +46,8 @@ class MultiResGraphClustering():
         self.descendances = []
         self.Us = []
     
+        # TODO: check if all sizes are <= or >= than the previous
+
         self.compute_clusters(n_clusts, method)
         self.compute_hierarchy_A(up_method)
 
@@ -79,10 +81,12 @@ class MultiResGraphClustering():
 
     def compute_clusters(self, n_clusts, method):
         self.cluster_alg()
+        # BUG: problem if at some level there is no change of size
+        # Maybe insert all FINDED sizes in "sizes", but create U/D only for the changes of size
         for t in list(dict.fromkeys(n_clusts)):
             if t == self.G.N:
                 self.labels.append(np.arange(1,self.G.N+1))
-                self.clusters_size.append(self.G.N)
+                self.sizes.append(self.G.N)
                 continue
             # t represent de relative distance, so it is necessary to obtain the 
             # real desired distance
@@ -90,7 +94,7 @@ class MultiResGraphClustering():
                 t = t*self.Z[-k,2]
             level_labels = fcluster(self.Z, t, criterion=method)
             self.labels.append(level_labels)
-            self.clusters_size.append(np.unique(level_labels).size)
+            self.sizes.append(np.unique(level_labels).size)
 
     def plot_dendrogram(self):
         plt.figure()
@@ -100,10 +104,10 @@ class MultiResGraphClustering():
 
     def compute_hierarchy_descendance(self):
         # Maybe descendance should be the upsampling matrices
-        for i in range(len(self.clusters_size)-1):
+        for i in range(len(self.sizes)-1):
             self.descendances.append([])
             # Find parent (labels i) of each child cluster (labels i+1)
-            for j in range(self.clusters_size[i+1]):
+            for j in range(self.sizes[i+1]):
                 indexes = np.where(self.labels[i+1] == j+1)
                 # Check if all has the same value!!!
                 n_parents = np.unique(self.labels[i+1][indexes]).size
@@ -122,15 +126,15 @@ class MultiResGraphClustering():
         self.compute_hierarchy_descendance()
         for i in range(len(self.descendances)):
             descendance = np.asarray(self.descendances[i])
-            U = np.zeros((self.clusters_size[i+1], self.clusters_size[i]))
-            for j in range(self.clusters_size[i+1]):
+            U = np.zeros((self.sizes[i+1], self.sizes[i]))
+            for j in range(self.sizes[i+1]):
                 U[j,descendance[j]-1] = 1
             self.Us.append(U)
 
     def compute_hierarchy_ascendance(self):
-        for i in range(len(self.clusters_size)-1):
+        for i in range(len(self.sizes)-1):
             self.ascendances.append([])
-            for j in range(self.clusters_size[i]):
+            for j in range(self.sizes[i]):
                 indexes = np.where(self.labels[i] == j+1)
                 parent_id = self.labels[i+1][indexes][0]
                 self.ascendances[i].append(parent_id)
@@ -143,24 +147,24 @@ class MultiResGraphClustering():
         self.compute_hierarchy_ascendance()
         for i in range(len(self.ascendances)):
             ascendance = np.asarray(self.ascendances[i])
-            D = np.zeros((self.clusters_size[i+1], self.clusters_size[i]))
-            for j in range(self.clusters_size[i+1]):
+            D = np.zeros((self.sizes[i+1], self.sizes[i]))
+            for j in range(self.sizes[i+1]):
                 indexes = np.where(ascendance == j+1)
                 D[j,indexes] = 1
             self.Ds.append(D)
 
     def compute_hierarchy_A(self, up_method):
-        if up_method == NO_A or up_method == None or up_method == REG:
+        if up_method in [None, NO_A, REG]:
             return
 
         A = self.G.W.todense()
-        for i in range(len(self.clusters_size)):
-            N = self.clusters_size[i]
+        for i in range(len(self.sizes)):
+            N = self.sizes[i]
             #if N == self.G.N:
-            #    self.hier_A.append(A)
+            #    self.As.append(A)
             #    continue
             #else:
-            self.hier_A.append(np.zeros((N, N)))
+            self.As.append(np.zeros((N, N)))
 
             inter_clust_links = 0
             for j in range(N-1):
@@ -170,14 +174,14 @@ class MultiResGraphClustering():
                     sub_A = A[nodes_c1,:][:,nodes_c2]
 
                     if up_method == BIN and np.sum(sub_A) > 0:
-                        self.hier_A[i][j,k] = self.hier_A[i][k,j] = 1
+                        self.As[i][j,k] = self.As[i][k,j] = 1
                     if up_method == WEI:
-                        self.hier_A[i][j,k] = np.sum(sub_A)
-                        self.hier_A[i][k,j] = self.hier_A[i][j,k]
+                        self.As[i][j,k] = np.sum(sub_A)
+                        self.As[i][k,j] = self.As[i][j,k]
                         inter_clust_links += np.sum(sub_A)
             if up_method == WEI:
-                self.hier_A[i] = self.hier_A[i]/inter_clust_links
-        return self.hier_A
+                self.As[i] = self.As[i]/inter_clust_links
+        return self.As
 
     def plot_labels(self, show=True):
         n_labels = len(self.labels)
@@ -189,11 +193,11 @@ class MultiResGraphClustering():
             plt.show()
 
     def plot_hier_A(self, show=True):
-        _, axes = plt.subplots(2, len(self.hier_A))
-        for i in range(len(self.hier_A)):
-            G = Graph(self.hier_A[i])
+        _, axes = plt.subplots(2, len(self.As))
+        for i in range(len(self.As)):
+            G = Graph(self.As[i])
             G.set_coordinates()
-            axes[0,i].spy(self.hier_A[i])
+            axes[0,i].spy(self.As[i])
             G.plot(ax=axes[1,i])
         if show:
             plt.show()
