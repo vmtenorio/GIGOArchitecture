@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from .cnngs_src import graphtools, datatools
+from cnngs_src import graphtools, datatools
 
-from model import Model
-from data_sets import FlightData
-import arch
+from GIGO.model import Model
+from GIGO.data_sets import FlightData
+import GIGO.arch
 
 # Consts
 if os.name == 'nt':
@@ -48,7 +48,7 @@ data = FlightData(LAST_EXEC + 'adj_mat.csv', LAST_EXEC + 'dep_delay.csv', 0.8, 2
 
 M.append(data.N_nodes)
 
-archit = arch.BasicArch(data.S, F, K, M, nonlin)
+archit = GIGO.arch.BasicArch(data.S, F, K, M, nonlin)
 
 model_param = {}
 

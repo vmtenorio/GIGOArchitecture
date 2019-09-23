@@ -48,7 +48,7 @@ p_ij_SBM = 0.2
 
 # NN Parameters
 arch_type = 'basic'
-Ki = 5
+Ki = 3
 Ko = 2
 L = 2
 Fi = [1,4,c]
@@ -64,7 +64,7 @@ learning_rate = 0.001
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.9
-nonlin = nn.ReLU
+nonlin = nn.LeakyReLU
 #nonlin = nn.Sigmoid
 
 # Define the datamodel

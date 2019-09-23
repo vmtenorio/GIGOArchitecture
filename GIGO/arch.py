@@ -84,7 +84,7 @@ class BasicArch(nn.Module):
         # Goes from TxNxF[0] to TxNxF[-1] with GFL
         y = self.GFL(x)
 
-        return y.squeeze(2)
+        #return y.squeeze(2)
 
         y = y.reshape([T, self.N*self.F[-1]])
 
@@ -105,11 +105,11 @@ class GIGOArch(nn.Module):
         #super()
 
         # Define parameters
-        if type(Si) == np.ndarray:
+        if type(Si) != torch.FloatTensor:
             self.Si = torch.FloatTensor(Si)
         else:
             self.Si = Si
-        if type(So) == np.ndarray:
+        if type(So) != torch.FloatTensor:
             self.So = torch.FloatTensor(So)
         else:
             self.So = So
@@ -172,15 +172,23 @@ class GIGOArch(nn.Module):
             x = x.unsqueeze(2)
             assert self.Fi[0] == 1
 
+        #print('Starting')
+        #print(x)
         # Define the forward pass
         # Graph filter layers
         # Goes from TxNxF[0] to TxNxF[-1] with GFL
         y = self.GFLi(x)
         # y shape should be T x Ni x No
         assert y.shape[2] == self.No
+        print('Intermediate')
+        print(y)
 
         y = y.permute(0,2,1)
+        print('Intermediate2')
+        print(y)
 
         y = self.GFLo(y)
+        #print('End')
+        #print(y)
 
         return torch.squeeze(y, dim=2)

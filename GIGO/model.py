@@ -26,8 +26,9 @@ class Model:
         self.eval_freq = eval_freq
         self.tb_log = tb_log
 
-        if self.tb_log:
-            self.writer = SummaryWriter()
+        if False:
+            for p in self.arch.parameters():
+                p.register_hook(lambda grad: print(grad))
 
     def fit(self, data, labels, val_data, val_labels):
         """
@@ -36,9 +37,6 @@ class Model:
         n_samples = data.shape[0]
 
         num_steps = int(n_samples / self.batch_size)
-
-        self.class_type = len(labels.shape) == 1    # If labels just have the
-        # train data dimension, it is a classification problem
 
         t_init = time.time()
         t_step = t_init
@@ -81,9 +79,9 @@ class Model:
         Returns loss and accuracy
         """
         with torch.no_grad():
-            print(data)
+            print("Data: " + str(data))
             y_pred = self.arch(data)
-            print(y_pred)
+            print("Predictions: " + str(y_pred))
             print("Labels: " + str(labels))
             print("Y_pred shape:" + str(y_pred.shape))
             if self.tb_log and it != None:
@@ -109,8 +107,26 @@ class Model:
         return loss, acc
 
     def eval(self, train_data, train_labels, test_data, test_labels):
+        if self.tb_log:
+            self.writer = SummaryWriter()
+            #self.writer.add_graph(self.arch)
+
+        self.class_type = len(train_labels.shape) == 1    # If labels just have the
+        # train data dimension, it is a classification problem
+
+        # Turn data into tensors
+        train_data = torch.FloatTensor(train_data)
+        test_data = torch.FloatTensor(test_data)
+        if self.class_type:
+            train_labels = torch.LongTensor(train_labels)
+            test_labels = torch.LongTensor(test_labels)
+        else:
+            train_labels = torch.FloatTensor(train_labels)
+            test_labels = torch.FloatTensor(test_labels)
 
         self.fit(train_data, train_labels, test_data, test_labels)
+        if self.tb_log:
+            self.writer.close()
         return self.predict(test_data, test_labels)
 
 
@@ -121,11 +137,9 @@ class Model:
         loss = self.loss_func(logits, labels)
 
         # print(loss.grad_fn)
-        # print(loss)
+        #print(loss)
         loss.backward()
         if False:
             for p in self.arch.parameters():
                 print(p)
-                print(p.data.requires_grad)
-                p.register_hook(lambda grad: print(grad))
         self.optim.step()

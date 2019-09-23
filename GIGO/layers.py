@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import math
 
+DEBUG = True
+
 class GraphFilter(nn.Module):
 
     def __init__(self,
@@ -23,6 +25,7 @@ class GraphFilter(nn.Module):
         self.weights.data.uniform_(-stdv, stdv)
         self.bias = nn.parameter.Parameter(torch.Tensor(1, self.N, self.Fout))
         self.bias.data.uniform_(-stdv, stdv)
+        torch.set_printoptions(threshold=100)
 
     def forward(self, x):
         # x shape T x N x Fin
@@ -30,8 +33,16 @@ class GraphFilter(nn.Module):
         T = x.shape[0]
         xN = x.shape[1]
         xFin = x.shape[2]
-        # print('X beg-')
-        # print(x)
+        if DEBUG:
+            print('Fin: ' + str(xFin))
+            print('X beg-')
+            print(x)
+            print('Weights - ')
+            print(self.weights)
+            print('Bias - ')
+            print(self.bias)
+            print('Graph - ')
+            print(self.S)
 
         assert xN == self.N
         assert xFin == self.Fin
@@ -39,12 +50,15 @@ class GraphFilter(nn.Module):
         x = x.permute(1, 2, 0)      # N x Fin x T
         x = x.reshape([self.N, self.Fin*T])
         x_list = []
-        Spow = torch.ones([self.N, self.N])
+        Spow = torch.eye(self.N)
 
         for k in range(self.K):
             x1 = torch.matmul(Spow, x)
             x_list.append(x1)
             Spow = torch.matmul(Spow, self.S)
+            if DEBUG:
+                print('Power ' + str(k))
+                print(Spow)
         # x shape after loop: K x N x Fin*T
         x = torch.stack(x_list)
 
@@ -57,7 +71,8 @@ class GraphFilter(nn.Module):
 
         y = y.reshape([T, self.N, self.Fout])
         y = y + self.bias
-        # print('Y end-')
-        # print(y.shape)
-        # print(y)
+        if DEBUG:
+            print('Y end-')
+            print(y.shape)
+            print(y)
         return y

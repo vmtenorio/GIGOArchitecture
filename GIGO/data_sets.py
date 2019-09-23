@@ -17,28 +17,20 @@ class SourceLocalization:
         p_ii: probability for nodes in the same community
         p_ij: probability for edges between nodes from different communities
     """
-    def __init__(self, N_nodes, N_comm, p_ii, p_ij, N_samples, maxdiff):
+    def __init__(self, N_nodes, N_comm, p_ii, p_ij, N_samples, maxdiff, train_test_coef):
         self.N_nodes = N_nodes
         self.N_comm = N_comm
         self.N_samples = N_samples
 
         # Create the GSO
-        self.mapping = graphtools.create_mapping()
-        self.graph = graphtools.create_SBM(N_nodes, p_ii, p_ij)
+        self.mapping, self.nodes_com = graphtools.create_mapping_NC(self.N_nodes, self.N_comm)
+        self.S, _ = graphtools.create_SBMc(self.N_nodes, self.N_comm, p_ii, p_ij, self.mapping)
 
         # Generate the data
-        self.train_labels = np.ceil(self.N_comm*np.random.rand(self.N_samples))
-        self.test_labels = np.ceil(N_classes*np.random.rand(N_test))
-        self.train_data = datatools.create_samples(self.train_labels, self.graph, maxdiff)
-        self.test_data = datatools.create_samples(self.test_labels, self.graph, maxdiff)
-
-    def create_SBM(self, N_nodes, p_ii, p_ij):
-        #TODO
-        raise NotImplementedError
-
-    def create_mapping(self):
-        #TODO
-        raise NotImplementedError
+        self.labels = np.floor(self.N_nodes*np.random.rand(self.N_samples))
+        self.data = datatools.create_samples(self.S, self.labels, maxdiff).transpose()   # To be T x N
+        self.train_data, self.train_labels, self.test_data, self.test_labels = \
+            datatools.train_test_split(self.data, self.labels, train_test_coef)
 
 class GIGOMaxComm:
     """
@@ -70,15 +62,6 @@ class GIGOMaxComm:
 
         self.train_data, self.train_labels, self.test_data, self.test_labels = \
             datatools.train_test_split(self.data, self.labels, train_test_coef)
-
-        self.turn_to_tensors()
-
-    def turn_to_tensors(self):
-        # Turn data into tensors
-        self.train_data = torch.FloatTensor(self.train_data)
-        self.train_labels = torch.FloatTensor(self.train_labels)
-        self.test_data = torch.FloatTensor(self.test_data)
-        self.test_labels = torch.FloatTensor(self.test_labels)
 
 class GIGOSourceLoc:
     """
@@ -112,15 +95,6 @@ class GIGOSourceLoc:
 
         self.train_data, self.train_labels, self.test_data, self.test_labels = \
             datatools.train_test_split(self.data, self.labels, train_test_coef)
-
-        self.turn_to_tensors()
-
-    def turn_to_tensors(self):
-        # Turn data into tensors
-        self.train_data = torch.FloatTensor(self.train_data)
-        self.train_labels = torch.LongTensor(self.train_labels)
-        self.test_data = torch.FloatTensor(self.test_data)
-        self.test_labels = torch.LongTensor(self.test_labels)
 
 class FlightData:
     def __init__(self, graph_route, data_route, train_test_coef, fut_time_pred):
@@ -156,7 +130,6 @@ class FlightData:
         #self.convert_labels()
         self.train_data, self.train_labels, self.test_data, self.test_labels = \
             datatools.train_test_split(self.data, self.labels, train_test_coef)
-        self.turn_to_tensors()
 
     def convert_labels(self):
         """
@@ -165,10 +138,3 @@ class FlightData:
         """
         self.labels = self.labels > 0
         self.labels = self.labels.astype(int)
-
-    def turn_to_tensors(self):
-        # Turn data into tensors
-        self.train_data = torch.FloatTensor(self.train_data)
-        self.train_labels = torch.FloatTensor(self.train_labels)
-        self.test_data = torch.FloatTensor(self.test_data)
-        self.test_labels = torch.FloatTensor(self.test_labels)
