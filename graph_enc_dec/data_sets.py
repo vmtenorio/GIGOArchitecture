@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pygsp.graphs import Graph, StochasticBlockModel, ErdosRenyi
+from torch import Tensor
 
 # Graph Type Constants
 SBM = 1
@@ -128,15 +129,25 @@ class DiffusedSparse2GS:
 
         # Create samples
         self.train_S = self.random_sparse_S(self.n_train, n_delts, min_d, max_d)   
-        self.train_X = self.Hx.dot(self.train_S)
-        self.train_Y = self.Hy.dot(self.train_S)
+        self.train_X = self.Hx.dot(self.train_S.T).T
+        self.train_Y = self.Hy.dot(self.train_S.T).T
         self.val_S = self.random_sparse_S(self.n_val, n_delts, min_d, max_d)   
-        self.val_X = self.Hx.dot(self.train_S)
-        self.val_Y = self.Hy.dot(self.train_S)
+        self.val_X = self.Hx.dot(self.train_S.T).T
+        self.val_Y = self.Hy.dot(self.train_S.T).T
         self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)   
-        self.test_X = self.Hx.dot(self.train_S)
-        self.test_Y = self.Hy.dot(self.train_S)
+        self.test_X = self.Hx.dot(self.train_S.T).T
+        self.test_Y = self.Hy.dot(self.train_S.T).T
         
+    def to_tensor(self, n_chans=1):
+        n_samps = self.train_X.shape[0]
+        N = self.train_X.shape[1]
+        self.train_X = Tensor(self.train_X).view([n_samps, n_chans, N])
+        self.train_Y = Tensor(self.train_Y).view([n_samps, n_chans, N])
+        self.val_X = Tensor(self.val_X).view([n_samps, n_chans, N])
+        self.val_Y = Tensor(self.val_Y).view([n_samps, n_chans, N])
+        self.test_X = Tensor(self.test_X).view([n_samps, n_chans, N])
+        self.test_Y = Tensor(self.test_Y).view([n_samps, n_chans, N])
+
     def to_unit_norm(self):
         self.train_X = self._to_unit_norm(self.train_X)
         self.train_Y = self._to_unit_norm(self.train_Y)
@@ -149,12 +160,11 @@ class DiffusedSparse2GS:
         """
         Divide each signal by its norm so all samples have unit norm 
         """
-        # TODO: Test that all samples have norm 1!
-        norm = np.sqrt(np.sum(signals**2,axis=0))
+        norm = np.sqrt(np.sum(signals**2,axis=1))
         if 0 in norm:
             print("WARNING: signal with norm 0")
             return None
-        return signals/norm
+        return (signals.T/norm).T
 
     def random_sparse_S(self, n_samp, n_deltas, min_delta, max_delta):
         """
@@ -179,7 +189,7 @@ class DiffusedSparse2GS:
                 com_nodes, = np.asarray(self.Gx.info['node_com']==com_j).nonzero()
                 rand_index = np.random.randint(0,self.Gx.info['comm_sizes'][com_j])
                 S[com_nodes[rand_index],i] = delta
-        return S
+        return S.T
 
     def random_diffusing_filters(self, L, same_coefs=False):
         """
