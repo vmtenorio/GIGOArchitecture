@@ -128,7 +128,6 @@ class DiffusedSparse2GS:
         self.random_diffusing_filters(L)
 
         # Create samples
-<<<<<<< HEAD
         self.train_S = self.random_sparse_S(self.n_train, n_delts, min_d, max_d)   
         self.train_X = self.Hx.dot(self.train_S.T).T
         self.train_Y = self.Hy.dot(self.train_S.T).T
@@ -148,17 +147,6 @@ class DiffusedSparse2GS:
         self.val_Y = Tensor(self.val_Y).view([n_samps, n_chans, N])
         self.test_X = Tensor(self.test_X).view([n_samps, n_chans, N])
         self.test_Y = Tensor(self.test_Y).view([n_samps, n_chans, N])
-=======
-        self.train_S = self.random_sparse_S(self.n_train, n_delts, min_d, max_d)
-        self.train_X = self.Hx.dot(self.train_S)
-        self.train_Y = self.Hy.dot(self.train_S)
-        self.val_S = self.random_sparse_S(self.n_val, n_delts, min_d, max_d)
-        self.val_X = self.Hx.dot(self.train_S)
-        self.val_Y = self.Hy.dot(self.train_S)
-        self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)
-        self.test_X = self.Hx.dot(self.train_S)
-        self.test_Y = self.Hy.dot(self.train_S)
->>>>>>> 3bdef1524b1d5ba93080901b95cb9dd8b6d58add
 
     def to_unit_norm(self):
         self.train_X = self._to_unit_norm(self.train_X)
