@@ -28,6 +28,21 @@ class MultiResGraphClustering():
         """
         The arguments of the constructor are:
         """
+
+        # Check for Enc
+        if n_clusts[0] >= n_clusts[-1]:
+            for i in range(1, len(n_clusts)):
+                if n_clusts[i-1] < n_clusts[i]:
+                    raise RuntimeError("{} is not a valid size. All sizes must be non-increasing"
+                                        .format(n_clusts))
+
+        # Check for Dec
+        if n_clusts[0] <= n_clusts[-1]:
+            for i in range(1, len(n_clusts)):
+                if n_clusts[i-1] > n_clusts[i]:
+                    raise RuntimeError("{} is not a valid size. All sizes must be non-decreasing"
+                                        .format(n_clusts))
+
         # Common for Enc and Dec
         self.G = G
         self.sizes = []
@@ -46,8 +61,6 @@ class MultiResGraphClustering():
         self.descendances = []
         self.Us = []
     
-        # TODO: check if all sizes are <= or >= than the previous
-
         self.compute_clusters(n_clusts, method)
         self.compute_hierarchy_A(up_method)
 
@@ -81,9 +94,10 @@ class MultiResGraphClustering():
 
     def compute_clusters(self, n_clusts, method):
         self.cluster_alg()
-        # BUG: problem if at some level there is no change of size
-        # Maybe insert all FINDED sizes in "sizes", but create U/D only for the changes of size
-        for t in list(dict.fromkeys(n_clusts)):
+        for i,t in enumerate(n_clusts):
+            if i > 0 and t == n_clusts[i-1]:
+                self.sizes.append(t)
+                continue
             if t == self.G.N:
                 self.labels.append(np.arange(1,self.G.N+1))
                 self.sizes.append(self.G.N)
@@ -91,7 +105,7 @@ class MultiResGraphClustering():
             # t represent de relative distance, so it is necessary to obtain the 
             # real desired distance
             if method == 'distance':
-                t = t*self.Z[-k,2]
+                t = t*self.Z[-self.k,2]
             level_labels = fcluster(self.Z, t, criterion=method)
             self.labels.append(level_labels)
             self.sizes.append(np.unique(level_labels).size)
@@ -103,8 +117,9 @@ class MultiResGraphClustering():
         plt.show()
 
     def compute_hierarchy_descendance(self):
-        # Maybe descendance should be the upsampling matrices
-        for i in range(len(self.sizes)-1):
+        # Compute descendance only when there is a change of size
+        sizes = list(dict.fromkeys(self.sizes))
+        for i in range(len(sizes)-1):
             self.descendances.append([])
             # Find parent (labels i) of each child cluster (labels i+1)
             for j in range(self.sizes[i+1]):
@@ -132,9 +147,11 @@ class MultiResGraphClustering():
             self.Us.append(U)
 
     def compute_hierarchy_ascendance(self):
-        for i in range(len(self.sizes)-1):
+        # Compute ascendance only when there is a change of size
+        sizes = list(dict.fromkeys(self.sizes))
+        for i in range(len(sizes)-1):
             self.ascendances.append([])
-            for j in range(self.sizes[i]):
+            for j in range(sizes[i]):
                 indexes = np.where(self.labels[i] == j+1)
                 parent_id = self.labels[i+1][indexes][0]
                 self.ascendances[i].append(parent_id)
@@ -158,7 +175,8 @@ class MultiResGraphClustering():
             return
 
         A = self.G.W.todense()
-        for i in range(len(self.sizes)):
+        sizes = list(dict.fromkeys(self.sizes))
+        for i in range(len(sizes)):
             N = self.sizes[i]
             #if N == self.G.N:
             #    self.As.append(A)
