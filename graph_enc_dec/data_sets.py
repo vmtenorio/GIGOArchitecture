@@ -15,7 +15,7 @@ RAND = 3    # Random nodes
 def assign_nodes_to_comms(N,k):
     """
     Distribute contiguous nodes in the same community while assuring that all
-    communities have (approximately) the same number of nodes.  
+    communities have (approximately) the same number of nodes.
     """
     z = np.zeros(N, dtype=np.int)
     leftover_nodes = N % k
@@ -41,7 +41,7 @@ def create_graph(ps, seed=None):
         - p: edge probability for nodes in the same community
         - q: edge probability for nodes in different communities (for SBM only)
         - type_z: specify how to assigns nodes to communities (for SBM only).
-          Options are CONT (continous), ALT (alternating) and RAND (random) 
+          Options are CONT (continous), ALT (alternating) and RAND (random)
     """
     if ps['type'] == SBM:
         if  ps['type_z'] == CONT:
@@ -62,11 +62,11 @@ def create_graph(ps, seed=None):
 
 def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
     """
-    Create 2 closely related graphs. The first graph is created following the 
-    indicated model and the second is a perturbated version of the previous 
+    Create 2 closely related graphs. The first graph is created following the
+    indicated model and the second is a perturbated version of the previous
     where links are created or destroid with a small probability.
     Arguments:
-        - g_params: a dictionary containing all the parameters for creating 
+        - g_params: a dictionary containing all the parameters for creating
           the desired graph. The options are explained in the documentation
           of the function 'create_graph'
         - eps_c: probability for creating new edges
@@ -94,7 +94,7 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
 
 class DiffusedSparse2GS:
     """
-    Class for generating graph signals X and Y following two diffusion processes 
+    Class for generating graph signals X and Y following two diffusion processes
     generated over two different graphs. However, the sparse signal which will
     be diffused is the same in both cases.
     The two graphs must have the same number of nodes and communities.
@@ -102,7 +102,7 @@ class DiffusedSparse2GS:
         - Gx: graph where signal X will be defined
         - Gy: graph where signal Y will be defined
         - n_samples: a list with the number of samples for training, validation
-          and test. Alternatively, if only an integer is provided  
+          and test. Alternatively, if only an integer is provided
     """
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1, max_d=1):
         if Gx.N != Gy.N:
@@ -112,8 +112,8 @@ class DiffusedSparse2GS:
 
         if not isinstance(n_samples, list):
             self.n_train = n_samples
-            self.n_val = np.floor(0.2*n_samples)
-            self.n_test = np.floor(0.2*n_samples) 
+            self.n_val = int(np.floor(0.2*n_samples))
+            self.n_test = int(np.floor(0.2*n_samples))
         elif len(n_samples) == 3:
             self.n_train = n_samples[0]
             self.n_val = n_samples[1]
@@ -121,22 +121,22 @@ class DiffusedSparse2GS:
         else:
             raise RuntimeError('n_samples must be an integer or a list with the \
                                 number of samples for trainin, validation and test')
-        
+
         self.Gx = Gx
         self.Gy = Gy
         self.random_diffusing_filters(L)
 
         # Create samples
-        self.train_S = self.random_sparse_S(self.n_train, n_delts, min_d, max_d)   
+        self.train_S = self.random_sparse_S(self.n_train, n_delts, min_d, max_d)
         self.train_X = self.Hx.dot(self.train_S)
         self.train_Y = self.Hy.dot(self.train_S)
-        self.val_S = self.random_sparse_S(self.n_val, n_delts, min_d, max_d)   
+        self.val_S = self.random_sparse_S(self.n_val, n_delts, min_d, max_d)
         self.val_X = self.Hx.dot(self.train_S)
         self.val_Y = self.Hy.dot(self.train_S)
-        self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)   
+        self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)
         self.test_X = self.Hx.dot(self.train_S)
         self.test_Y = self.Hy.dot(self.train_S)
-        
+
     def to_unit_norm(self):
         self.train_X = self._to_unit_norm(self.train_X)
         self.train_Y = self._to_unit_norm(self.train_Y)
@@ -147,7 +147,7 @@ class DiffusedSparse2GS:
 
     def _to_unit_norm(self, signals):
         """
-        Divide each signal by its norm so all samples have unit norm 
+        Divide each signal by its norm so all samples have unit norm
         """
         # TODO: Test that all samples have norm 1!
         norm = np.sqrt(np.sum(signals**2,axis=0))
@@ -158,7 +158,7 @@ class DiffusedSparse2GS:
 
     def random_sparse_S(self, n_samp, n_deltas, min_delta, max_delta):
         """
-        Create random sparse signal s composed of different deltas placed in the 
+        Create random sparse signal s composed of different deltas placed in the
         different communities of the graph. If the graph is an ER, then deltas
         are just placed on random nodes
         """
@@ -169,7 +169,7 @@ class DiffusedSparse2GS:
 
         # NOTE: if more than one delta per comm is used, then the means of the comm
         # will be almost the same. Maybe need to use same mean for deltas of
-        # the same comm, except in the ER case 
+        # the same comm, except in the ER case
         for i in range(n_samp):
             delta_values = np.random.randn(n_deltas)*step/4 + delta_means
             # Randomly assign delta value to comm nodes
@@ -183,7 +183,7 @@ class DiffusedSparse2GS:
 
     def random_diffusing_filters(self, L, same_coefs=False):
         """
-        Create two lineal random diffusing filters with L random coefficients 
+        Create two lineal random diffusing filters with L random coefficients
         using the graphs shift operators from Gx and Gy.
         Arguments:
             - L: number of filter coeffcients
