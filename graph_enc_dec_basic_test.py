@@ -28,23 +28,24 @@ if __name__ == '__main__':
 
     # Signal parameters
     L = 6
-    n_samples = [3,1,1]
+    n_samples = [1000,200,200]
     
-    # Encoder size: (nodes, features)
+    # Encoder size
     feat_enc = [1, 2, 3]
     nodes_enc = [10, 5, 2]
 
     # Decoder size
-    feat_dec = [3, 2, 2, 2, 1]
-    nodes_dec = [2, 5, 10, 10, 10]
+    feat_dec = [3, 2, 2]    #[3, 2, 2, 2, 1]
+    nodes_dec = [2, 5, 10]  #[2, 5, 10, 10, 10]
 
-    # Third section of only convs? 
-    
+    # Layers of only convolutions
+    feat_only_conv = [2, 2, 1] # 
     ups = gc.WEI
 
     start_time = time.time()
     # Create graphs
     Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, seed=SEED)
+    
     #Gx.plot()
     #Gy.plot()
     #plt.show()
@@ -52,36 +53,27 @@ if __name__ == '__main__':
     # Create graph signals
     data = data_sets.DiffusedSparse2GS(Gx, Gy, n_samples, L, G_params['k'])
     data.to_unit_norm()
+    data.to_tensor()
 
     # For Gx
     print("Clustering Gx:")
-    cluster_x = gc.MultiResGraphClustering(Gx, nodes_enc, k=2, up_method=ups)
-    print(cluster_x.clusters_size)
-    print(cluster_x.ascendances)
-    print(cluster_x.Ds)
-    #cluster_x.plot_dendrogram()
-    
+    cluster_x = gc.MultiResGraphClustering(Gx, nodes_enc, k=2, up_method=None)
+
     print("Clustering Gy:")
     cluster_y = gc.MultiResGraphClustering(Gy, nodes_dec, k=2, up_method=ups)
-    print(cluster_y.clusters_size)
-    print(cluster_y.descendances)
-    print(cluster_y.Us)
-    #cluster_y.plot_dendrogram()
 
-    #TODO: test upsamping and downsampling matrices
     #TODO: review hier_A function
-    #TODO: review architecture (will be necessary to modify it)
-    #TODO: review fit function
+    #TODO: test build_arch
 
-    sys.exit()
+    # Nodes_d and nodes_u should take the value from cluster!
+    net = architecture.GraphEncoderDecoder(feat_enc, cluster_x.sizes,
+                                            cluster_x.Ds, feat_dec,
+                                            cluster_y.sizes, cluster_y.Us,
+                                            feat_only_conv, As_dec=cluster_y.As)
 
-    net = architecture.GraphEncoderDecoder(feat_d, feat_u, nodes_d, nodes_u,
-                                            cluster_x.ascendance, 
-                                            cluster_y.descendance, cluster_x.hier_A,
-                                            cluster_y.hier_A, ups, ups)
-    # PENDING TO TRAIN AND EVALUATE IT!
-    print(net.model)
-
+    
+    print('N params:', net.count_params())
+    net.fit(data.train_X, data.train_Y, data.val_X, data.val_Y)
 
 
 

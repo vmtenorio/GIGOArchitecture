@@ -1,6 +1,8 @@
-from torch import manual_seed, nn, Tensor
+from torch import manual_seed, nn, Tensor, optim, no_grad
+import torch
 import sys
 import numpy as np
+import time
 
 from graph_clustering import NONE, REG, NO_A, BIN, WEI
 
@@ -49,7 +51,7 @@ class GraphEncoderDecoder():
         self.model.add_module(str(len(self.model) + 1), module)
 
     # TODO: create a method for testing the correct creation of the arch
-    # NOTE: possibility for a section of only convolutions at the beggining also?
+    # NOTE: possibility for a section of only convolutions at the beggining 
     def build_network(self):
         # Encoder Section
         downs_skip = 0
@@ -99,7 +101,7 @@ class GraphEncoderDecoder():
                 if self.last_act_fn is not None:
                     self.add_layer(self.last_act_fn)
 
-        # Only convollutions section
+        # Only convolutions section
         for l in range(len(self.fts_cnv_dec)-1):
             self.add_layer(nn.Conv1d(self.fts_cnv_dec[l], self.fts_cnv_dec[l+1],
                         self.kernel_size, bias=False))
@@ -113,46 +115,88 @@ class GraphEncoderDecoder():
                 if self.last_act_fn is not None:
                     self.add_layer(self.last_act_fn)
             
+    def count_params(self):
+        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+    
+    def fit(self, train_X, train_Y, val_X, val_Y, batch_size=100, n_epochs=50, decay_rate=1,
+                eval_freq=5, loss_fn=nn.MSELoss(), verbose=True):
+        """
+        Train the model for learning the weights
+        """
+        # TODO: maybe improve the fit function with early stoping if error increase for the
+        # validation data during some steps
+        n_samples = train_X.shape[0]
+        n_steps = int(n_samples/batch_size)
+        optimizer = optim.Adam(self.model.parameters())
+        scheduler = optim.lr_scheduler.ExponentialLR(optimizer, decay_rate)
 
-"""
-Use information from the agglomerative hierarchical clustering for doing the upsampling by
-creating the upsampling matrix U
-"""
-# Method???
+        for i in range(1, n_epochs+1):
+            for j in range(1, n_steps+1):
+                # Randomly seect batches
+                idx = np.random.permutation(n_samples)[:batch_size]
+                batch_X = train_X[idx,:]
+                batch_Y = train_Y[idx,:]
+                self.model.zero_grad()
+
+                # Training step
+                predicted_Y = self.model(batch_X)
+                training_loss = loss_fn(predicted_Y, batch_Y)
+                training_loss.backward()
+                optimizer.step()
+
+            scheduler.step()
+            if verbose and i % eval_freq == 0:
+                # Predict eval error
+                with no_grad():
+                    predicted_Y_eval = self.model(val_X)
+                    eval_loss = loss_fn(predicted_Y_eval, val_Y)
+                print('Epoch {}/{}: \tEval loss: {:.8f} \tTrain loss: {:.8f}'
+                        .format(i, n_epochs, eval_loss, training_loss))
+
+
+
 class GraphUpsampling(nn.Module):
+    """
+    Use information from the agglomerative hierarchical clustering for doing the upsampling by
+    creating the upsampling matrix U
+    """
     def __init__(self, U, A, gamma, method=WEI):
         super(GraphUpsampling, self).__init__()
         # NOTE: Normalize A so its rows add up to 1 --> maybe should be done when obtainning A
         if A is not None:
-            D_inv = np.linalg.inv(np.diag(np.sum(self.A,0)))
+            D_inv = np.linalg.inv(np.diag(np.sum(A,0)))
             self.A = D_inv.dot(A)
         self.parent_size = U.shape[1]
         self.child_size = U.shape[0]
         self.method = method
         self.gamma = gamma
-        self.U = Tensor(self.U)
+        self.U = Tensor(U)
 
     def forward(self, input):
         # TODO: check if making ops with np instead of torch increase speed
+        n_samples = input.shape[0]
         n_channels = input.shape[1]
-        matrix_in = input.view(self.parent_size, n_channels)
+        output = torch.zeros([n_samples, n_channels, self.U.shape[0]])
+        for i in range(n_samples):
+            in_matrix = torch.t(input[i,:,:])
+            parents_val = self.U.mm(in_matrix)
+            # NOTE: gamma = 1 is equivalent to no_A
+            # NOTE: gamma = 0 is equivalent to the prev setup
+            if self.method == REG:
+                sf = self.child_size/self.parent_size
+                return nn.functional.interpolate(input, scale_factor=sf,
+                                        mode='linear', align_corners=True)
+            elif self.method == NO_A:
+                output[i,:,:] = torch.t(parents_val)
+            elif self.method in [BIN, WEI]:
+                neigbours_val = Tensor(self.A).mm(parents_val)
+                output[i,:,:] = torch.t(self.gamma*parents_val + (1-self.gamma)*neigbours_val)
+            else:
+                raise RuntimeError('Unknown sampling method')
 
-        parents_val = self.U.mm(matrix_in)
-        # NOTE: gamma = 1 is equivalent to no_A
-        # NOTE: gamma = 0 is equivalent to the prev setup
-        if self.method == REG:
-            sf = self.child_size/self.parent_size
-            output = nn.functional.interpolate(input, scale_factor=sf,
-                                    mode='linear', align_corners=True)
-        elif self.method == NO_A:
-            output = parents_val
-        elif self.method in [BIN, WEI]:
-            neigbours_val = Tensor(self.A).mm(parents_val)
-            output = self.gamma*parents_val + (1-self.gamma)*neigbours_val
-        else:
-            raise RuntimeError('Unknown sampling method')
-        return output.view(1, n_channels, self.child_size)
+        return output
 
+# TODO: add function for printing its info correctly
 class GraphDownsampling(nn.Module):
     def __init__(self, D):
         # Maybe different types of Ds?
@@ -163,9 +207,9 @@ class GraphDownsampling(nn.Module):
         self.D = Tensor(Deg_inv.dot(D))
 
     def forward(self, input):
-        #n_channels = input.shape[1]
-        #matrix_in = input.view(self.parent_size, n_channels)
-        #parents_val = self.U.mm(matrix_in)
-        #return output.view(1, n_channels, self.child_size)
-        return self.U.mm(input)
-        
+        n_samples = input.shape[0]
+        output = torch.zeros([n_samples, input.shape[1], self.D.shape[0]])
+        for i in range(n_samples):
+            in_matrix = torch.t(input[i,:,:])
+            output[i,:,:] = torch.t(self.D.mm(in_matrix))        
+        return output
