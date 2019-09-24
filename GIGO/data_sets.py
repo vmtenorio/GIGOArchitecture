@@ -25,10 +25,13 @@ class SourceLocalization:
         # Create the GSO
         self.mapping, self.nodes_com = graphtools.create_mapping_NC(self.N_nodes, self.N_comm)
         self.S, _ = graphtools.create_SBMc(self.N_nodes, self.N_comm, p_ii, p_ij, self.mapping)
+        self.S = graphtools.norm_graph(self.S)
 
         # Generate the data
-        self.labels = np.floor(self.N_nodes*np.random.rand(self.N_samples))
-        self.data = datatools.create_samples(self.S, self.labels, maxdiff).transpose()   # To be T x N
+        self.labels_nodes = np.floor(self.N_nodes*np.random.rand(self.N_samples))
+        self.data = datatools.create_samples(self.S, self.labels_nodes, maxdiff).transpose()   # To be T x N
+        self.labels = np.asarray([self.mapping[i] for i in self.labels_nodes])  # For comm prediction
+        #self.labels = self.labels_nodes    # For node prediction
         self.train_data, self.train_labels, self.test_data, self.test_labels = \
             datatools.train_test_split(self.data, self.labels, train_test_coef)
 

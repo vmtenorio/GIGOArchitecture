@@ -69,6 +69,9 @@ class BasicArch(nn.Module):
         T = x.shape[0]
         xN = x.shape[1]
 
+        print('asdf')
+        print(xN)
+        print(self.N, flush=True)
         assert xN == self.N
 
         try:
@@ -180,12 +183,14 @@ class GIGOArch(nn.Module):
         y = self.GFLi(x)
         # y shape should be T x Ni x No
         assert y.shape[2] == self.No
-        print('Intermediate')
-        print(y)
+        if DEBUG:
+            print('Intermediate')
+            print(y)
 
         y = y.permute(0,2,1)
-        print('Intermediate2')
-        print(y)
+        if DEBUG:
+            print('Intermediate2')
+            print(y)
 
         y = self.GFLo(y)
         #print('End')

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 
-DEBUG = True
+DEBUG = False
 
 class GraphFilter(nn.Module):
 

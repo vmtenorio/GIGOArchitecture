@@ -29,11 +29,10 @@ num_epochs = 40
 batch_size = 100
 
 # Graph parameters
-N = 150
+N = 16
 select_graph = 'SBM'
 p_ER = 0.4
 c = 5
-N_classes = c
 p_ii_SBM = 0.8
 p_ij_SBM = 0.2
 
@@ -42,7 +41,7 @@ K = 5
 L = 2
 F = [1,32,32]
 
-M = [32, N_classes]
+M = [32, c] # I'm getting the comm that originated the delta
 
 loss_func = nn.CrossEntropyLoss()
 optimizer = "ADAM"
