@@ -79,5 +79,4 @@ model_param['tb_log'] = TB_LOG
 
 model = Model(**model_param)
 # Transpose them as they are N x T, and the architecture works with T x N
-print(data.test_X.shape)
-model.eval(data.train_X.T, data.train_Y.T, data.test_X, data.test_Y)
+model.eval(data.train_X, data.train_Y, data.test_X, data.test_Y)

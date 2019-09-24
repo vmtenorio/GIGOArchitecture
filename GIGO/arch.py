@@ -4,6 +4,8 @@ from GIGO import layers
 
 import numpy as np
 
+DEBUG = False
+
 class BasicArch(nn.Module):
     def __init__(self,
                 S,
