@@ -132,21 +132,20 @@ class DiffusedSparse2GS:
         self.train_X = self.Hx.dot(self.train_S.T).T
         self.train_Y = self.Hy.dot(self.train_S.T).T
         self.val_S = self.random_sparse_S(self.n_val, n_delts, min_d, max_d)   
-        self.val_X = self.Hx.dot(self.train_S.T).T
-        self.val_Y = self.Hy.dot(self.train_S.T).T
+        self.val_X = self.Hx.dot(self.val_S.T).T
+        self.val_Y = self.Hy.dot(self.val_S.T).T
         self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)   
-        self.test_X = self.Hx.dot(self.train_S.T).T
-        self.test_Y = self.Hy.dot(self.train_S.T).T
-        
+        self.test_X = self.Hx.dot(self.test_S.T).T
+        self.test_Y = self.Hy.dot(self.test_S.T).T
+
     def to_tensor(self, n_chans=1):
-        n_samps = self.train_X.shape[0]
         N = self.train_X.shape[1]
-        self.train_X = Tensor(self.train_X).view([n_samps, n_chans, N])
-        self.train_Y = Tensor(self.train_Y).view([n_samps, n_chans, N])
-        self.val_X = Tensor(self.val_X).view([n_samps, n_chans, N])
-        self.val_Y = Tensor(self.val_Y).view([n_samps, n_chans, N])
-        self.test_X = Tensor(self.test_X).view([n_samps, n_chans, N])
-        self.test_Y = Tensor(self.test_Y).view([n_samps, n_chans, N])
+        self.train_X = Tensor(self.train_X).view([self.n_train, n_chans, N])
+        self.train_Y = Tensor(self.train_Y).view([self.n_train, n_chans, N])
+        self.val_X = Tensor(self.val_X).view([self.n_val, n_chans, N])
+        self.val_Y = Tensor(self.val_Y).view([self.n_val, n_chans, N])
+        self.test_X = Tensor(self.test_X).view([self.n_test, n_chans, N])
+        self.test_Y = Tensor(self.test_Y).view([self.n_test, n_chans, N])
 
     def to_unit_norm(self):
         self.train_X = self._to_unit_norm(self.train_X)
