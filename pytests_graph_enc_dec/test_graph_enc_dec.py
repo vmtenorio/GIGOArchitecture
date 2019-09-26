@@ -206,7 +206,20 @@ class BuildNetworkTest(unittest.TestCase):
             self.fail()
         except:
             pass
-
+        fts_dec = [3, 2, 2, 1]
+        try:
+            GraphEncoderDecoder(fts_enc,n_enc,[],fts_dec,n_dec,[],fts_conv)
+            self.fail()
+        except:
+            pass
+        fts_dec = [3, 2, 1]
+        n_enc = [10, 5, 5, 2]
+        try:
+            GraphEncoderDecoder(fts_enc,n_enc,[],fts_dec,n_dec,[],fts_conv)
+            self.fail()
+        except:
+            pass
+        
     def test_complete_network(self):
         pass
 

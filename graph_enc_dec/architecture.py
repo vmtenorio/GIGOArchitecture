@@ -1,4 +1,5 @@
 from torch import manual_seed, nn, Tensor, optim, no_grad
+import copy
 import torch
 import sys
 import numpy as np
@@ -29,6 +30,9 @@ class GraphEncoderDecoder():
 
         if features_conv_dec[0] != features_dec[-1]:
             raise RuntimeError('Features of last decoder layer and first conv layer do not match')
+
+        if len(features_enc) != len(nodes_enc) or len(features_dec) != len(nodes_dec):
+            raise RuntimeError('Length of the nodes and features vector must be the same')
 
         self.model = nn.Sequential()
         self.fts_enc = features_enc
@@ -80,7 +84,6 @@ class GraphEncoderDecoder():
 
             if self.nodes_dec[l] < self.nodes_dec[l+1]:
                 # TODO: Need to notify if reg_ups or no_A will be used! 
-                #A = None if self.ups == NO_A or self.ups == REG else self.hierA_u[l+1]
                 # Add layer graph upsampling
                 # ups?
                 # Careful, A may be None
@@ -109,7 +112,7 @@ class GraphEncoderDecoder():
                 if self.act_fn is not None:
                     self.add_layer(self.act_fn)
                 if self.batch_norm:
-                    self.add_layer(nn.BatchNorm1d(self.fts_dec[l+1]))
+                    self.add_layer(nn.BatchNorm1d(self.fts_cnv_dec[l+1]))
             else:
                 # Last layer
                 if self.last_act_fn is not None:
@@ -119,7 +122,8 @@ class GraphEncoderDecoder():
         return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
     
     def fit(self, train_X, train_Y, val_X, val_Y, batch_size=100, n_epochs=50, decay_rate=1,
-                eval_freq=5, loss_fn=nn.MSELoss(), verbose=True):
+                eval_freq=5, loss_fn=nn.MSELoss(), verbose=True, lr=0.001, save_best=True,
+                max_non_dec=3):
         """
         Train the model for learning the weights
         """
@@ -127,15 +131,19 @@ class GraphEncoderDecoder():
         # validation data during some steps
         n_samples = train_X.shape[0]
         n_steps = int(n_samples/batch_size)
-        optimizer = optim.Adam(self.model.parameters())
+        optimizer = optim.Adam(self.model.parameters(), lr=lr)
         scheduler = optim.lr_scheduler.ExponentialLR(optimizer, decay_rate)
 
+        best_err = 1000000
+        best_net = None
+        cont = 0
         for i in range(1, n_epochs+1):
             for j in range(1, n_steps+1):
                 # Randomly seect batches
                 idx = np.random.permutation(n_samples)[:batch_size]
                 batch_X = train_X[idx,:]
                 batch_Y = train_Y[idx,:]
+
                 self.model.zero_grad()
 
                 # Training step
@@ -145,15 +153,35 @@ class GraphEncoderDecoder():
                 optimizer.step()
 
             scheduler.step()
-            if verbose and i % eval_freq == 0:
+            if i % eval_freq == 0:
                 # Predict eval error
                 with no_grad():
                     predicted_Y_eval = self.model(val_X)
                     eval_loss = loss_fn(predicted_Y_eval, val_Y)
-                print('Epoch {}/{}: \tEval loss: {:.8f} \tTrain loss: {:.8f}'
+                if eval_loss.data*1.005 < best_err:
+                    best_err = eval_loss.data
+                    best_net = copy.deepcopy(self.model)
+                    cont = 0
+                else:
+                    if cont >= max_non_dec:
+                        break
+                    cont += 1
+                if verbose:
+                    print('Epoch {}/{}: \tEval loss: {:.8f} \tTrain loss: {:.8f}'
                         .format(i, n_epochs, eval_loss, training_loss))
+        self.model = best_net
 
+    def test(self, test_X, test_Y, loss_fn=nn.MSELoss()):
+        shape = [test_X.shape[0],test_X.shape[2]]
+        test_Y = test_Y.view(shape)
+        predicted_Y = self.model(test_X).view(shape)
+        mse = loss_fn(predicted_Y, test_Y)
 
+        predicted_Y = predicted_Y.detach().numpy()
+        test_Y = test_Y.detach().numpy()
+        norm_error = np.sum((predicted_Y-test_Y)**2,axis=1)/np.linalg.norm(test_Y,axis=1)
+        mean_norm_error = np.mean(norm_error)
+        return mean_norm_error, mse.detach().numpy()
 
 class GraphUpsampling(nn.Module):
     """
