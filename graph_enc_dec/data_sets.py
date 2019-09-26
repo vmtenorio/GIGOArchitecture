@@ -87,7 +87,8 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
     A_y[no_link_ind] = np.logical_xor(A_y[no_link_ind], mask_c).astype(int)
     np.fill_diagonal(A_y, 0)
     Gy = Graph(A_y)
-    #print(dir(Gx))
+    if not Gy.is_connected():
+        raise RuntimeError('Could not create connected graph Gy')
     Gx.set_coordinates('community2D')
     Gy.set_coordinates(Gx.coords)
     Gy.info={'node_com': Gx.info['node_com'], 'comm_sizes': Gx.info['comm_sizes']}
@@ -105,7 +106,7 @@ class DiffusedSparse2GS:
         - n_samples: a list with the number of samples for training, validation
           and test. Alternatively, if only an integer is provided
     """
-    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1, max_d=1):
+    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1, max_d=1, median=False):
         if Gx.N != Gy.N:
             raise RuntimeError('Both graphs must have the same number of nodes')
         if Gx.info['comm_sizes'].size != Gy.info['comm_sizes'].size:
@@ -137,6 +138,21 @@ class DiffusedSparse2GS:
         self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)   
         self.test_X = self.Hx.dot(self.test_S.T).T
         self.test_Y = self.Hy.dot(self.test_S.T).T
+
+        if median:
+            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
+            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
+            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
+            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
+            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
+            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
+
+    def median_neighbours_nodes(self, X, G):
+        X_aux = np.zeros(X.shape)
+        for i in range(G.N):
+            _, neighbours = np.asarray(G.W.todense()[i,:]!=0).nonzero()
+            X_aux[:,i] = np.median(X[:,neighbours],axis=1)
+        return X_aux
 
     def to_tensor(self, n_chans=1):
         N = self.train_X.shape[1]

@@ -68,9 +68,7 @@ class MultiResGraphClustering():
             self.compute_Downs()
         elif n_clusts[0] < n_clusts[-1]:
             self.compute_Ups()
-
                 
-
     def distance_clustering(self):
         """
         Obtain the matrix Z of distances between the different agglomeartive
@@ -184,6 +182,7 @@ class MultiResGraphClustering():
             #else:
             self.As.append(np.zeros((N, N)))
 
+            # Normalize matrix A in here??
             inter_clust_links = 0
             for j in range(N-1):
                 nodes_c1 = np.where(self.labels[i] == j+1)[0]
@@ -210,7 +209,7 @@ class MultiResGraphClustering():
         if show:    
             plt.show()
 
-    def plot_hier_A(self, show=True):
+    def plot_As(self, show=True):
         _, axes = plt.subplots(2, len(self.As))
         for i in range(len(self.As)):
             G = Graph(self.As[i])
