@@ -54,8 +54,8 @@ learning_rate = 0.001
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.9
-nonlin = nn.ReLU
-#nonlin = nn.Sigmoid
+#nonlin = nn.ReLU
+nonlin = nn.Sigmoid
 
 # Define the data model
 data = data_sets.DiffusedSparse2GS(Gx, Gy, N_samples, L_filter, G_params['k'])

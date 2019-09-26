@@ -4,6 +4,8 @@ import numpy as np
 import time
 from tensorboardX import SummaryWriter
 
+DEBUG = False
+
 class Model:
     def __init__(self,
                 arch,
@@ -26,7 +28,7 @@ class Model:
         self.eval_freq = eval_freq
         self.tb_log = tb_log
 
-        if False:
+        if DEBUG:
             for p in self.arch.parameters():
                 p.register_hook(lambda grad: print(grad))
 
@@ -139,7 +141,7 @@ class Model:
         # print(loss.grad_fn)
         #print(loss)
         loss.backward()
-        if False:
+        if DEBUG:
             for p in self.arch.parameters():
                 print(p)
         self.optim.step()

@@ -56,7 +56,7 @@ class GraphFilter(nn.Module):
             x1 = torch.matmul(Spow, x)
             x_list.append(x1)
             Spow = torch.matmul(Spow, self.S)
-            if DEBUG:
+            if DEBUG and False:
                 print('Power ' + str(k))
                 print(Spow)
         # x shape after loop: K x N x Fin*T

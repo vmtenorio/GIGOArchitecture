@@ -30,8 +30,8 @@ class SourceLocalization:
         # Generate the data
         self.labels_nodes = np.floor(self.N_nodes*np.random.rand(self.N_samples))
         self.data = datatools.create_samples(self.S, self.labels_nodes, maxdiff).transpose()   # To be T x N
-        self.labels = np.asarray([self.mapping[i] for i in self.labels_nodes])  # For comm prediction
-        #self.labels = self.labels_nodes    # For node prediction
+        #self.labels = np.asarray([self.mapping[i] for i in self.labels_nodes])  # For comm prediction
+        self.labels = self.labels_nodes    # For node prediction
         self.train_data, self.train_labels, self.test_data, self.test_labels = \
             datatools.train_test_split(self.data, self.labels, train_test_coef)
 

@@ -37,11 +37,11 @@ p_ii_SBM = 0.8
 p_ij_SBM = 0.2
 
 # NN Parameters
-K = 5
+K = 3
 L = 2
 F = [1,32,32]
 
-M = [32, c] # I'm getting the comm that originated the delta
+M = [32, N] # I'm getting the comm that originated the delta
 
 loss_func = nn.CrossEntropyLoss()
 optimizer = "ADAM"

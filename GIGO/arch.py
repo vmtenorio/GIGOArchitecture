@@ -71,9 +71,6 @@ class BasicArch(nn.Module):
         T = x.shape[0]
         xN = x.shape[1]
 
-        print('asdf')
-        print(xN)
-        print(self.N, flush=True)
         assert xN == self.N
 
         try:

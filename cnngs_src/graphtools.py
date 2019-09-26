@@ -37,7 +37,7 @@ def create_SBMc(N_nodes, N_comm, p_ii, p_ij, mapping):
     N_graph = np.zeros((N_nodes, N_nodes))
     C_graph = np.zeros((N_comm, N_comm))
     for i in range(N_nodes):
-        for j in range(N_nodes):
+        for j in range(i+1, N_nodes):
             if i == j:
                 # Not considering diagonal, as it is adjacency
                 continue
