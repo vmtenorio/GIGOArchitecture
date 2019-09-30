@@ -76,7 +76,7 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
     Gx = create_graph(g_params, seed)
     A_x = Gx.A.todense()
     #TODO: make a test for ensuring both graphs have same nodes, comms, etc
-    # they should only differ on the links
+    # they should only differ on the links and both should be sym
     link_ind = np.where(A_x==1)
     no_link_ind = np.where(A_x!=1)
     mask_c = np.random.choice([0, 1], p=[1-eps_c, eps_c], size=no_link_ind[0].shape)
@@ -85,7 +85,9 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
     A_y = A_x
     A_y[link_ind] = np.logical_xor(A_y[link_ind], mask_d).astype(int)
     A_y[no_link_ind] = np.logical_xor(A_y[no_link_ind], mask_c).astype(int)
-    np.fill_diagonal(A_y, 0)
+    A_y = np.triu(A_y, 1)
+    A_y = A_y + A_y.T
+
     Gy = Graph(A_y)
     if not Gy.is_connected():
         raise RuntimeError('Could not create connected graph Gy')
@@ -147,12 +149,15 @@ class DiffusedSparse2GS:
             self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
             self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
+
     def median_neighbours_nodes(self, X, G):
         X_aux = np.zeros(X.shape)
         for i in range(G.N):
             _, neighbours = np.asarray(G.W.todense()[i,:]!=0).nonzero()
             X_aux[:,i] = np.median(X[:,neighbours],axis=1)
         return X_aux
+        #return np.tanh(X_aux)
+        #return np.where(X_aux>0, np.log(X_aux), np.exp(X_aux))
 
     def to_tensor(self, n_chans=1):
         N = self.train_X.shape[1]
@@ -206,7 +211,7 @@ class DiffusedSparse2GS:
                 S[com_nodes[rand_index],i] = delta
         return S.T
 
-    def random_diffusing_filters(self, L, same_coefs=False):
+    def random_diffusing_filters(self, L):
         """
         Create two lineal random diffusing filters with L random coefficients
         using the graphs shift operators from Gx and Gy.
@@ -216,8 +221,9 @@ class DiffusedSparse2GS:
               coefficients
         """
         hs_x = np.random.rand(L)
-        hs_y = hs_x if same_coefs else np.random.rand(L)
-        self.Hx = self.Hy = np.zeros(self.Gx.W.shape)
+        hs_y = np.random.rand(L)
+        self.Hx = np.zeros(self.Gx.W.shape)
+        self.Hy = np.zeros(self.Gy.W.shape)
         Sx = self.Gx.W.todense()
         Sy = self.Gy.W.todense()
         for l in range(L):
