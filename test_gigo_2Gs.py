@@ -16,7 +16,7 @@ TB_LOG = True
 # Parameters
 
 # Data parameters
-N_samples = 10000
+N_samples = 2000
 eval_freq = 4
 
 L_filter = 5
@@ -25,8 +25,8 @@ num_epochs = 40
 batch_size = 100
 
 # Graph parameters
-N = 10
-c = 2
+N = 64
+c = 4
 G_params = {}
 G_params['type'] = data_sets.SBM #SBM or ER
 G_params['N'] = N
@@ -44,24 +44,28 @@ arch_type = 'basic'
 Ki = 3
 Ko = 2
 L = 2
-Fi = [1,4,N]
-Fo = [N,4,1]
+Fi = [1,N]
+Fo = [N,1]
 
 loss_func = nn.MSELoss()
 
 optimizer = "ADAM"
-learning_rate = 0.001
+learning_rate = 0.01
 beta1 = 0.9
 beta2 = 0.999
-decay_rate = 0.9
-#nonlin = nn.ReLU
-nonlin = nn.Sigmoid
+decay_rate = 0.99
+nonlin = nn.Tanh
 
 # Define the data model
 data = data_sets.DiffusedSparse2GS(Gx, Gy, N_samples, L_filter, G_params['k'])
 data.to_unit_norm()
 
-archit = GIGOArch(Gx.W.todense().astype(int), Gy.W.todense().astype(int), Fi, Fo, Ki, Ko, nonlin)
+Lx = graphtools.norm_graph(Gx.W.todense())
+Ly = graphtools.modify_graph(Gx.W.todense(), N)
+
+Ly = graphtools.norm_graph(Ly)
+
+archit = GIGOArch(Lx, Ly, Fi, Fo, Ki, Ko, nonlin)
 
 model_param = {}
 
@@ -78,5 +82,4 @@ model_param['eval_freq'] = eval_freq
 model_param['tb_log'] = TB_LOG
 
 model = Model(**model_param)
-# Transpose them as they are N x T, and the architecture works with T x N
 model.eval(data.train_X, data.train_Y, data.test_X, data.test_Y)

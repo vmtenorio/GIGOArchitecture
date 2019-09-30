@@ -64,7 +64,7 @@ learning_rate = 0.01
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.9
-nonlin = nn.LeakyReLU
+nonlin = nn.ReLU
 #nonlin = nn.Sigmoid
 
 # Define the datamodel

@@ -131,6 +131,7 @@ class GIGOArch(nn.Module):
 
         # Define the layers
         # Grahp Filter Layers for the input graph
+        n_params = 0
         gfli = []
         for l in range(len(self.Fi)-1):
             # print("Graph filter layer: " + str(l))
@@ -139,6 +140,7 @@ class GIGOArch(nn.Module):
             gfli.append(self.nonlin())
             self.l_param.append('weights_gfi_' + str(l))
             self.l_param.append('bias_gfi_' + str(l))
+            n_params += self.Fi[l] * self.Fi[l+1] * self.Ki + self.Fi[l+1] * self.Ni
 
         self.GFLi = nn.Sequential(*gfli)
 
@@ -148,11 +150,19 @@ class GIGOArch(nn.Module):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
             gflo.append(layers.GraphFilter(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
-            gflo.append(self.nonlin())
+            if l < len(self.Fo) -1:
+                gflo.append(self.nonlin())
             self.l_param.append('weights_gfo_' + str(l))
             self.l_param.append('bias_gfo_' + str(l))
+            n_params += self.Fo[l] * self.Fo[l+1] * self.Ko + self.Fo[l+1] * self.No
 
         self.GFLo = nn.Sequential(*gflo)
+
+        print("Architecture:")
+        print("Input Graph N_nodes: {}, Output graph N_nodes: {}".format(self.Ni, self.No))
+        print("Fin: {}, Fout: {}, Kin: {}, Kout: {}".format(self.Fi, self.Fo, self.Ki, self.Ko))
+        print("Non lin: " + str(self.nonlin))
+        print("N params: " + str(n_params))
 
     def forward(self, x):
 
@@ -182,14 +192,8 @@ class GIGOArch(nn.Module):
         y = self.GFLi(x)
         # y shape should be T x Ni x No
         assert y.shape[2] == self.No
-        if DEBUG:
-            print('Intermediate')
-            print(y)
 
         y = y.permute(0,2,1)
-        if DEBUG:
-            print('Intermediate2')
-            print(y)
 
         y = self.GFLo(y)
         #print('End')

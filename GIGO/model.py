@@ -60,9 +60,9 @@ class Model:
                 loss, acc = self.predict(val_data, val_labels, i)
 
                 print('Epoch {}/{}'.format(i, self.num_epochs), end=" - ")
-                #if self.class_type:
-                print('Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*val_data.shape[0])), val_data.shape[0]), end=" - ")
-                print('Loss: {:.2f}'.format(loss), end=" - ")
+                if self.class_type:
+                    print('Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*val_data.shape[0])), val_data.shape[0]), end=" - ")
+                print('Loss: {:.6f}'.format(loss), end=" - ")
                 now = time.time()
                 print('Time: {} (step) - {} (since beginning)'.format(round(now-t_step, 2), round(now-t_init,2)))
                 t_step = now
@@ -136,6 +136,13 @@ class Model:
         # Run the architecture
         logits = self.arch(data)
 
+        if DEBUG:
+            print('Logits')
+            print(logits)
+            print(logits.shape)
+            print('labels')
+            print(labels)
+            print(labels.shape)
         loss = self.loss_func(logits, labels)
 
         # print(loss.grad_fn)

@@ -55,21 +55,39 @@ class GraphFilter(nn.Module):
         for k in range(self.K):
             x1 = torch.matmul(Spow, x)
             x_list.append(x1)
+            if DEBUG:
+                print(x1)
+                print(x1.shape)
             Spow = torch.matmul(Spow, self.S)
             if DEBUG and False:
                 print('Power ' + str(k))
                 print(Spow)
         # x shape after loop: K x N x Fin*T
         x = torch.stack(x_list)
+        if DEBUG:
+            print('X - 1')
+            print(x)
 
         x = x.reshape([self.K, self.N, self.Fin, T])
         x = x.permute(3,1,2,0)
         x = x.reshape([T*self.N, self.K*self.Fin])
+        if DEBUG:
+            print('X - 2')
+            print(x)
+            print('Weights - ')
+            print(self.weights)
 
         # Apply weights
         y = torch.matmul(x, self.weights)       # y shape: T*N x Fout
+        if DEBUG:
+            print('Y - 1')
+            print(y)
 
         y = y.reshape([T, self.N, self.Fout])
+        if DEBUG:
+            print('Y before bias-')
+            print(y.shape)
+            print(y)
         y = y + self.bias
         if DEBUG:
             print('Y end-')
