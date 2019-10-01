@@ -18,6 +18,7 @@ TB_LOG = True
 # Data parameters
 N_samples = 2000
 eval_freq = 4
+N_graphs = 1
 
 L_filter = 5
 
@@ -37,15 +38,13 @@ G_params['type_z'] = data_sets.CONT
 eps1 = 0.1
 eps2 = 0.3
 
-Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, seed=SEED)
-
 # NN Parameters
 arch_type = 'basic'
 Ki = 3
 Ko = 2
 L = 2
-Fi = [1,N]
-Fo = [N,1]
+Fi = [1,16,N]
+Fo = [N,16,1]
 
 loss_func = nn.MSELoss()
 
@@ -56,20 +55,8 @@ beta2 = 0.999
 decay_rate = 0.99
 nonlin = nn.Tanh
 
-# Define the data model
-data = data_sets.DiffusedSparse2GS(Gx, Gy, N_samples, L_filter, G_params['k'])
-data.to_unit_norm()
-
-Lx = graphtools.norm_graph(Gx.W.todense())
-Ly = graphtools.modify_graph(Gx.W.todense(), N)
-
-Ly = graphtools.norm_graph(Ly)
-
-archit = GIGOArch(Lx, Ly, Fi, Fo, Ki, Ko, nonlin)
-
 model_param = {}
 
-model_param['arch'] = archit
 model_param['optimizer'] = optimizer
 model_param['learning_rate'] = learning_rate
 model_param['beta1'] = beta1
@@ -81,5 +68,33 @@ model_param['batch_size'] = batch_size
 model_param['eval_freq'] = eval_freq
 model_param['tb_log'] = TB_LOG
 
-model = Model(**model_param)
-model.eval(data.train_X, data.train_Y, data.test_X, data.test_Y)
+mse_losses = []
+mean_norm_errs = []
+
+for ng in range(N_graphs):
+
+    Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, seed=SEED)
+
+    # Define the data model
+    data = data_sets.DiffusedSparse2GS(Gx, Gy, N_samples, L_filter, G_params['k'])
+    data.to_unit_norm()
+
+    Gx.compute_laplacian('normalized')
+    Gy.compute_laplacian('normalized')
+
+    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, nonlin)
+
+    model_param['arch'] = archit
+
+    model = Model(**model_param)
+    mse_loss, _, mean_norm_err = model.eval(data.train_X, data.train_Y, data.val_X, data.val_Y, data.test_X, data.test_Y)
+    mse_losses.append(mse_loss)
+    mean_norm_errs.append(mean_norm_err)
+
+print("--------------------------------------Ended simulation--------------------------------------")
+print("2G difussed deltas architecture parameters")
+print("Graph: N = {}; c = {}".format(str(N), str(c)))
+print("MSE loss = ".format(str(mse_losses)))
+print("MSE loss mean = ".format(np.mean(mse_losses)))
+print("Mean Squared Error = ".format(str(mean_norm_errs)))
+print("Mean Squared Error Mean = ".format(np.mean(mean_norm_errs)))
