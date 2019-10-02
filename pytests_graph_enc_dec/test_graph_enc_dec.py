@@ -12,24 +12,63 @@ from graph_enc_dec.architecture import GraphEncoderDecoder, GraphDownsampling, G
 
 SEED = 15
 
-# TODO: test graph creation
+# TODO: test graph creation --> check graphs are symm
+
 
 class DiffusedSparse2GSTest(unittest.TestCase):
     def setUp(self):
         np.random.seed(SEED)
-        G_params = {}
-        G_params['type'] = ds.SBM
-        G_params['N']  = 32
-        G_params['k']  = 4
-        G_params['p'] = 0.7
-        G_params['q'] = 0.1
-        G_params['type_z'] = ds.RAND
-        eps1 = 0.1
-        eps2 = 0.3
-        self.Gx, self.Gy = ds.perturbated_graphs(G_params, eps1, eps2, seed=SEED)
+        self.G_params = {}
+        self.G_params['type'] = ds.SBM
+        self.G_params['N']  = 32
+        self.G_params['k']  = 4
+        self.G_params['p'] = 0.7
+        self.G_params['q'] = 0.1
+        self.G_params['type_z'] = ds.RAND
+        self.eps1 = 0.1
+        self.eps2 = 0.3
+        self.Gx, self.Gy = ds.perturbated_graphs(self.G_params, self.eps1, self.eps2, seed=SEED)
+
+    def test_S_ER(self):
+        n_samps = [50, 20, 20]
+        L = 6
+        n_delts = 6
+        self.G_params['type'] = ds.ER
+        Gx, Gy = ds.perturbated_graphs(self.G_params, self.eps1, self.eps2, seed=SEED)
+        data = ds.DiffusedSparse2GS(Gx, Gy, n_samps, L, n_delts)
+        self.assertFalse(np.array_equal(data.Hx,data.Hy))
+        for i in range(n_samps[0]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+        for i in range(n_samps[1]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+        for i in range(n_samps[2]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+
+    # TODO: check if deltas are in the comms
+    def test_S_SBM(self):
+        n_samps = [50, 20, 20]
+        L = 6
+        n_delts = self.G_params['k']
+        data = ds.DiffusedSparse2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        self.assertFalse(np.array_equal(data.Hx,data.Hy))
+        for i in range(n_samps[0]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+        for i in range(n_samps[1]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+        for i in range(n_samps[2]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+
+        n_delts = self.G_params['k']*2+3
+        data = ds.DiffusedSparse2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        for i in range(n_samps[0]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+        for i in range(n_samps[1]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+        for i in range(n_samps[2]):
+            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
 
     def test_to_unit_norm(self):
-        n_samps = [50, 10, 10]
+        n_samps = [50, 20, 20]
         L = 6
         n_delts = 4
         data = ds.DiffusedSparse2GS(self.Gx, self.Gy, n_samps, L, n_delts)
@@ -44,6 +83,7 @@ class DiffusedSparse2GSTest(unittest.TestCase):
         for i in range(n_samps[2]):
             self.assertAlmostEqual(np.linalg.norm(data.test_X[i,:]),1)
             self.assertAlmostEqual(np.linalg.norm(data.train_Y[i,:]),1)
+
 
 class GraphClustSizesTest(unittest.TestCase):
     def setUp(self):
