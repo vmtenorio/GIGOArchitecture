@@ -7,33 +7,30 @@ import time
 
 from graph_clustering import NONE, REG, NO_A, BIN, WEI
 
+
 # NOTE: maybe is good to pass method as argument...
-class GraphEncoderDecoder():
-    @staticmethod
-    def set_seed(seed):
-        manual_seed(seed)
-
+class GraphEncoderDecoder(nn.Module):
     def __init__(self,
-                # Encoder args
-                features_enc, nodes_enc, Ds,
-                # Decoder args
-                features_dec, nodes_dec, Us,
-                # Only conv layers
-                features_conv_dec, 
-                # Optional args
-                As_enc=None, As_dec=None, gamma=0.5, batch_norm=True,
-                # Activation functions
-                act_fn=nn.Tanh(), last_act_fn=nn.Tanh()):
-
+                 # Encoder args
+                 features_enc, nodes_enc, Ds,
+                 # Decoder args
+                 features_dec, nodes_dec, Us,
+                 # Only conv layers
+                 features_conv_dec=[], 
+                 # Optional args
+                 As_enc=None, As_dec=None, gamma=0.5, batch_norm=True,
+                 # Activation functions
+                 act_fn=nn.Tanh(), last_act_fn=nn.Tanh()):
         if features_enc[-1] != features_dec[0] or nodes_enc[-1] != nodes_dec[0]:
             raise RuntimeError('Different definition of dimension for the latent space')
 
-        if features_conv_dec[0] != features_dec[-1]:
+        if len(features_conv_dec) != 0 and features_conv_dec[0] != features_dec[-1]:
             raise RuntimeError('Features of last decoder layer and first conv layer do not match')
 
         if len(features_enc) != len(nodes_enc) or len(features_dec) != len(nodes_dec):
             raise RuntimeError('Length of the nodes and features vector must be the same')
 
+        super(GraphEncoderDecoder, self).__init__()
         self.model = nn.Sequential()
         self.fts_enc = features_enc
         self.nodes_enc = nodes_enc
@@ -60,13 +57,13 @@ class GraphEncoderDecoder():
         # Encoder Section
         downs_skip = 0
         for l in range(len(self.fts_enc)-1):
-            self.add_layer(nn.Conv1d(self.fts_enc[l], self.fts_enc[l+1], 
+            self.add_layer(nn.Conv1d(self.fts_enc[l], self.fts_enc[l+1],
                         self.kernel_size, bias=False))
-            
+
             if self.nodes_enc[l] > self.nodes_enc[l+1]:
                 # TODO: Need to notify if reg_ups will be used!
                 # TODO: Create reg_downs --> are this two really needed in this setting??
-                #A = None if self.downs == 'no_A' or self.downs == 'original' else self.hier_A[l+1]
+                # A = None if self.downs == 'no_A' or self.downs == 'original' else self.hier_A[l+1]
                 self.add_layer(GraphDownsampling(self.Ds[l-downs_skip]))
             else:
                 downs_skip += 1
@@ -74,7 +71,6 @@ class GraphEncoderDecoder():
                 self.add_layer(self.act_fn)
             if self.batch_norm:
                 self.add_layer(nn.BatchNorm1d(self.fts_enc[l+1]))
-            
 
         # Decoder Section
         ups_skip = 0
@@ -87,12 +83,12 @@ class GraphEncoderDecoder():
                 # Add layer graph upsampling
                 # ups?
                 # Careful, A may be None
-                #self.add_layer(GraphUpsampling(self.Us[l-ups_skip], A, self.ups, self.gamma))
+                # self.add_layer(GraphUpsampling(self.Us[l-ups_skip], A, self.ups, self.gamma))
                 self.add_layer(GraphUpsampling(self.Us[l-ups_skip], self.As_dec[l+1-ups_skip],
-                                                self.gamma))
+                                               self.gamma))
             else:
                 ups_skip += 1
-            
+
             if len(self.fts_cnv_dec) > 0 or l < (len(self.fts_dec)-2):
                 # This is not the last layer
                 if self.act_fn is not None:
@@ -107,7 +103,7 @@ class GraphEncoderDecoder():
         # Only convolutions section
         for l in range(len(self.fts_cnv_dec)-1):
             self.add_layer(nn.Conv1d(self.fts_cnv_dec[l], self.fts_cnv_dec[l+1],
-                        self.kernel_size, bias=False))
+                           self.kernel_size, bias=False))
             if l < len(self.fts_cnv_dec)-2:
                 if self.act_fn is not None:
                     self.add_layer(self.act_fn)
@@ -117,78 +113,18 @@ class GraphEncoderDecoder():
                 # Last layer
                 if self.last_act_fn is not None:
                     self.add_layer(self.last_act_fn)
-            
-    def count_params(self):
-        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-    
-    def fit(self, train_X, train_Y, val_X, val_Y, batch_size=100, n_epochs=50, decay_rate=1,
-                eval_freq=5, loss_fn=nn.MSELoss(), verbose=True, lr=0.001, save_best=True,
-                max_non_dec=3):
-        """
-        Train the model for learning the weights
-        """
-        # TODO: maybe improve the fit function with early stoping if error increase for the
-        # validation data during some steps
-        n_samples = train_X.shape[0]
-        n_steps = int(n_samples/batch_size)
-        optimizer = optim.Adam(self.model.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.ExponentialLR(optimizer, decay_rate)
 
-        best_err = 1000000
-        best_net = None
-        cont = 0
-        for i in range(1, n_epochs+1):
-            for j in range(1, n_steps+1):
-                # Randomly seect batches
-                idx = np.random.permutation(n_samples)[:batch_size]
-                batch_X = train_X[idx,:]
-                batch_Y = train_Y[idx,:]
+    def forward(self, x):
+        # TODO: Separate in encoder, decoder and conv (?)
+        return self.model(x)
 
-                self.model.zero_grad()
-
-                # Training step
-                predicted_Y = self.model(batch_X)
-                training_loss = loss_fn(predicted_Y, batch_Y)
-                training_loss.backward()
-                optimizer.step()
-
-            scheduler.step()
-            if i % eval_freq == 0:
-                # Predict eval error
-                with no_grad():
-                    predicted_Y_eval = self.model(val_X)
-                    eval_loss = loss_fn(predicted_Y_eval, val_Y)
-                if eval_loss.data*1.005 < best_err:
-                    best_err = eval_loss.data
-                    best_net = copy.deepcopy(self.model)
-                    cont = 0
-                else:
-                    if cont >= max_non_dec:
-                        break
-                    cont += 1
-                if verbose:
-                    print('Epoch {}/{}: \tEval loss: {:.8f} \tTrain loss: {:.8f}'
-                        .format(i, n_epochs, eval_loss, training_loss))
-        self.model = best_net
-
-    def test(self, test_X, test_Y, loss_fn=nn.MSELoss()):
-        shape = [test_X.shape[0],test_X.shape[2]]
-        test_Y = test_Y.view(shape)
-        predicted_Y = self.model(test_X).view(shape)
-        mse = loss_fn(predicted_Y, test_Y)
-
-        predicted_Y = predicted_Y.detach().numpy()
-        test_Y = test_Y.detach().numpy()
-        norm_error = np.sum((predicted_Y-test_Y)**2,axis=1)/np.linalg.norm(test_Y,axis=1)
-        mean_norm_error = np.mean(norm_error)
-        return mean_norm_error, mse.detach().numpy()
 
 class GraphUpsampling(nn.Module):
     """
     Use information from the agglomerative hierarchical clustering for doing the upsampling by
     creating the upsampling matrix U
     """
-    def __init__(self, U, A, gamma, method=WEI):
+    def __init__(self, U, A, gamma, method=WEI):  #WEI
         super(GraphUpsampling, self).__init__()
         # NOTE: Normalize A so its rows add up to 1 --> maybe should be done when obtainning A
         if A is not None:
@@ -224,6 +160,7 @@ class GraphUpsampling(nn.Module):
 
         return output
 
+
 # TODO: add function for printing its info correctly
 class GraphDownsampling(nn.Module):
     def __init__(self, D):
@@ -239,5 +176,5 @@ class GraphDownsampling(nn.Module):
         output = torch.zeros([n_samples, input.shape[1], self.D.shape[0]])
         for i in range(n_samples):
             in_matrix = torch.t(input[i,:,:])
-            output[i,:,:] = torch.t(self.D.mm(in_matrix))        
+            output[i,:,:] = torch.t(self.D.mm(in_matrix))
         return output
