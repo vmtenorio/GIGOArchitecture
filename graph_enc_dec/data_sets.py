@@ -3,13 +3,14 @@ import matplotlib.pyplot as plt
 from pygsp.graphs import Graph, StochasticBlockModel, ErdosRenyi
 from torch import Tensor
 
+from math import pi
 # Graph Type Constants
 SBM = 1
-ER =  2
+ER = 2
 
 # Comm Node Assignment Constants
 CONT = 1    # Contiguous nodes
-ALT =  2    # Alternated nodes
+ALT = 2    # Alternated nodes
 RAND = 3    # Random nodes
 
 
@@ -31,6 +32,7 @@ def assign_nodes_to_comms(N,k):
         grouped_nodes += n_nodes
     return z
 
+
 def create_graph(ps, seed=None):
     """
     Create a random graph using the parameters specified in the dictionary ps.
@@ -45,11 +47,11 @@ def create_graph(ps, seed=None):
           Options are CONT (continous), ALT (alternating) and RAND (random)
     """
     if ps['type'] == SBM:
-        if  ps['type_z'] == CONT:
+        if ps['type_z'] == CONT:
             z = assign_nodes_to_comms(ps['N'],ps['k'])
-        elif  ps['type_z'] == ALT:
+        elif ps['type_z'] == ALT:
             z = np.array(list(range(ps['k']))*int(ps['N']/ps['k'])+list(range(ps['N']%ps['k'])))
-        elif  ps['type_z'] == RAND:
+        elif ps['type_z'] == RAND:
             z = assign_nodes_to_comms(ps['N'],ps['k'])
             np.random.shuffle(z)
         else:
@@ -60,6 +62,7 @@ def create_graph(ps, seed=None):
         return ErdosRenyi(N=ps['N'], p=ps['p'], connected=True, seed=seed)
     else:
         raise RuntimeError('Unknown graph type')
+
 
 def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
     """
@@ -75,10 +78,10 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
     """
     Gx = create_graph(g_params, seed)
     A_x = Gx.A.todense()
-    #TODO: make a test for ensuring both graphs have same nodes, comms, etc
+    # TODO: make a test for ensuring both graphs have same nodes, comms, etc
     # they should only differ on the links and both should be sym
-    link_ind = np.where(A_x==1)
-    no_link_ind = np.where(A_x!=1)
+    link_ind = np.where(A_x == 1)
+    no_link_ind = np.where(A_x != 1)
     mask_c = np.random.choice([0, 1], p=[1-eps_c, eps_c], size=no_link_ind[0].shape)
     mask_d = np.random.choice([0, 1], p=[1-eps_d, eps_d], size=link_ind[0].shape)
 
@@ -93,8 +96,9 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
         raise RuntimeError('Could not create connected graph Gy')
     Gx.set_coordinates('community2D')
     Gy.set_coordinates(Gx.coords)
-    Gy.info={'node_com': Gx.info['node_com'], 'comm_sizes': Gx.info['comm_sizes']}
+    Gy.info = {'node_com': Gx.info['node_com'], 'comm_sizes': Gx.info['comm_sizes']}
     return Gx, Gy
+
 
 class DiffusedSparse2GS:
     """
@@ -108,7 +112,7 @@ class DiffusedSparse2GS:
         - n_samples: a list with the number of samples for training, validation
           and test. Alternatively, if only an integer is provided
     """
-    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1, max_d=1, median=False):
+    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1, max_d=1):
         if Gx.N != Gy.N:
             raise RuntimeError('Both graphs must have the same number of nodes')
         if Gx.info['comm_sizes'].size != Gy.info['comm_sizes'].size:
@@ -124,40 +128,17 @@ class DiffusedSparse2GS:
             self.n_test = n_samples[2]
         else:
             raise RuntimeError('n_samples must be an integer or a list with the \
-                                number of samples for trainin, validation and test')
-
+                                samples for training, validation and test')
         self.Gx = Gx
         self.Gy = Gy
-        self.random_diffusing_filters(L)
-
-        # Create samples
-        self.train_S = self.random_sparse_S(self.n_train, n_delts, min_d, max_d)   
-        self.train_X = self.Hx.dot(self.train_S.T).T
-        self.train_Y = self.Hy.dot(self.train_S.T).T
-        self.val_S = self.random_sparse_S(self.n_val, n_delts, min_d, max_d)   
-        self.val_X = self.Hx.dot(self.val_S.T).T
-        self.val_Y = self.Hy.dot(self.val_S.T).T
-        self.test_S = self.random_sparse_S(self.n_test, n_delts, min_d, max_d)   
-        self.test_X = self.Hx.dot(self.test_S.T).T
-        self.test_Y = self.Hy.dot(self.test_S.T).T
-
-        if median:
-            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
-            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
-            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
-            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
-            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
-            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
-
 
     def median_neighbours_nodes(self, X, G):
         X_aux = np.zeros(X.shape)
+        X = np.tanh(X)
         for i in range(G.N):
-            _, neighbours = np.asarray(G.W.todense()[i,:]!=0).nonzero()
-            X_aux[:,i] = np.median(X[:,neighbours],axis=1)
+            _, neighbours = np.asarray(G.W.todense()[i, :] != 0).nonzero()
+            X_aux[:, i] = np.median(X[:, neighbours], axis=1)
         return X_aux
-        #return np.tanh(X_aux)
-        #return np.where(X_aux>0, np.log(X_aux), np.exp(X_aux))
 
     def to_tensor(self, n_chans=1):
         N = self.train_X.shape[1]
@@ -186,30 +167,60 @@ class DiffusedSparse2GS:
             return None
         return (signals.T/norm).T
 
-    def random_sparse_S(self, n_samp, n_deltas, min_delta, max_delta):
+    def sparse_S(self, n_samp, n_deltas, min_delta, max_delta):
         """
         Create random sparse signal s composed of different deltas placed in the
         different communities of the graph. If the graph is an ER, then deltas
         are just placed on random nodes
         """
         S = np.zeros((self.Gx.N, n_samp))
-        # Create delta mean values
-        step = (max_delta-min_delta)/(n_deltas-1)
-        delta_means = np.arange(min_delta, max_delta+0.1, step)
 
-        # NOTE: if more than one delta per comm is used, then the means of the comm
-        # will be almost the same. Maybe need to use same mean for deltas of
-        # the same comm, except in the ER case
+        # Create delta mean values
+        n_comms = self.Gx.info['comm_sizes'].size
+        if n_comms > 1:
+            step = (max_delta-min_delta)/(n_comms-1)
+        else:
+            step = (max_delta-min_delta)/(n_deltas-1)
+        ds_per_comm = np.ceil(n_deltas/n_comms).astype(int)
+        delta_means = np.arange(min_delta, max_delta+0.1, step)
+        delta_means = np.tile(delta_means, ds_per_comm)[:n_deltas]        
         for i in range(n_samp):
             delta_values = np.random.randn(n_deltas)*step/4 + delta_means
             # Randomly assign delta value to comm nodes
-            for j, delta in enumerate(delta_values):
-                # Always the same
+            for j in range(n_deltas):
+                delta = delta_values[j]
                 com_j = j % self.Gx.info['comm_sizes'].size
-                com_nodes, = np.asarray(self.Gx.info['node_com']==com_j).nonzero()
-                rand_index = np.random.randint(0,self.Gx.info['comm_sizes'][com_j])
-                S[com_nodes[rand_index],i] = delta
+                com_nodes, = np.asarray(self.Gx.info['node_com'] == com_j).nonzero()
+                rand_index = np.random.randint(0, self.Gx.info['comm_sizes'][com_j])
+                S[com_nodes[rand_index], i] = delta
         return S.T
+
+
+class LinearDS2GS(DiffusedSparse2GS):
+    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
+                 max_d=1, median=False):
+        super(LinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts, min_d,
+                                          max_d)
+        self.random_diffusing_filters(L)
+
+        # Create samples
+        self.train_S = self.sparse_S(self.n_train, n_delts, min_d, max_d)
+        self.train_X = self.Hx.dot(self.train_S.T).T
+        self.train_Y = self.Hy.dot(self.train_S.T).T
+        self.val_S = self.sparse_S(self.n_val, n_delts, min_d, max_d)
+        self.val_X = self.Hx.dot(self.val_S.T).T
+        self.val_Y = self.Hy.dot(self.val_S.T).T
+        self.test_S = self.sparse_S(self.n_test, n_delts, min_d, max_d)
+        self.test_X = self.Hx.dot(self.test_S.T).T
+        self.test_Y = self.Hy.dot(self.test_S.T).T
+
+        if median:
+            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
+            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
+            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
+            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
+            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
+            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
     def random_diffusing_filters(self, L):
         """
@@ -217,8 +228,6 @@ class DiffusedSparse2GS:
         using the graphs shift operators from Gx and Gy.
         Arguments:
             - L: number of filter coeffcients
-            - same_coefs: boolean indicating if both filters have the same random
-              coefficients
         """
         hs_x = np.random.rand(L)
         hs_y = np.random.rand(L)
@@ -227,5 +236,38 @@ class DiffusedSparse2GS:
         Sx = self.Gx.W.todense()
         Sy = self.Gy.W.todense()
         for l in range(L):
-            self.Hx += hs_x[l]*np.linalg.matrix_power(Sx,l)
-            self.Hy += hs_y[l]*np.linalg.matrix_power(Sy,l)
+            self.Hx += hs_x[l]*np.linalg.matrix_power(Sx, l)
+            self.Hy += hs_y[l]*np.linalg.matrix_power(Sy, l)
+
+
+class NonLinearDS2GS(DiffusedSparse2GS):
+    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
+                 max_d=1, median=False):
+        super(NonLinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts,
+                                             min_d, max_d)
+        self.train_S = self.sparse_S(self.n_train, n_delts, min_d, max_d)
+        self.val_S = self.sparse_S(self.n_val, n_delts, min_d, max_d)
+        self.test_S = self.sparse_S(self.n_test, n_delts, min_d, max_d)
+        self.train_X = self.signal_diffusion(self.train_S, self.Gx, L)
+        self.train_Y = self.signal_diffusion(self.train_S, self.Gy, L)
+        self.val_X = self.signal_diffusion(self.val_S, self.Gx, L)
+        self.val_Y = self.signal_diffusion(self.val_S, self.Gy, L)
+        self.test_X = self.signal_diffusion(self.test_S, self.Gx, L)
+        self.test_Y = self.signal_diffusion(self.test_S, self.Gy, L)
+
+        if median:
+            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
+            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
+            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
+            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
+            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
+            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
+
+    def signal_diffusion(self, S, G, L):
+        S_T = S.T
+        X_T = np.zeros(S_T.shape)
+        A = G.W.todense()
+        h = np.random.rand(L)
+        for l in range(L):
+            X_T += h[l]*np.linalg.matrix_power(A, l).dot(np.sign(S_T)*S_T**l)
+        return X_T.T
