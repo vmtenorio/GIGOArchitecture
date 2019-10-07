@@ -1,5 +1,6 @@
-from torch import optim, no_grad, nn
+from torch import optim, no_grad, nn, Tensor
 import copy
+import time
 import numpy as np
 import sys
 
@@ -20,7 +21,9 @@ class Model:
         self.verbose = verbose
         self.max_non_dec = max_non_dec
         self.optim = optim.Adam(self.arch.parameters(), lr=learning_rate)
-        self.scheduler = optim.lr_scheduler.ExponentialLR(self.optim, decay_rate)
+        # self.optim = optim.SGD(self.arch.parameters(), lr=learning_rate)
+        self.scheduler = optim.lr_scheduler.ExponentialLR(self.optim,
+                                                          decay_rate)
 
     def count_params(self):
         return sum(p.numel() for p in self.arch.parameters() if p.requires_grad)
@@ -33,11 +36,12 @@ class Model:
         best_net = None
         cont = 0
         for i in range(1, self.epochs+1):
-            for j in range(n_steps):
+            t_start = time.time()
+            for j in range(1, n_steps+1):
                 # Randomly seect batches
                 idx = np.random.permutation(n_samples)[:self.batch_size]
-                batch_X = train_X[idx,:]
-                batch_Y = train_Y[idx,:]
+                batch_X = train_X[idx, :, :]
+                batch_Y = train_Y[idx, :, :]
                 self.arch.zero_grad()
 
                 # Training step
@@ -47,6 +51,8 @@ class Model:
                 self.optim.step()
 
             self.scheduler.step()
+            t = time.time()-t_start
+
             # Predict eval error
             with no_grad():
                 predicted_Y_eval = self.arch(val_X)
@@ -61,8 +67,8 @@ class Model:
                 cont += 1
 
             if self.verbose and i % self.eval_freq == 0:
-                print('Epoch {}/{}: \tEval loss: {:.8f} \tTrain loss: {:.8f}'
-                    .format(i, self.epochs, eval_loss, training_loss))
+                print('Epoch {}/{}({:.4f}s)\tEval Loss: {:.8f}\tTrain: {:.8f}'
+                      .format(i, self.epochs, t, eval_loss, training_loss))
         self.arch = best_net
 
     def test(self, test_X, test_Y):
@@ -70,40 +76,39 @@ class Model:
         shape = [test_X.shape[0], test_X.shape[2]]
 
         # Error for each node
-        test_Y = test_Y.view(shape)
+        Y = test_Y.view(shape)
         Y_hat = self.arch(test_X).view(shape)
-        node_mse = self.loss(Y_hat, test_Y)
+        node_mse = self.loss(Y_hat, Y)
 
         # Normalize error for the whole signal
         Y_hat = Y_hat.detach().numpy()
-        test_Y = test_Y.detach().numpy()
-        norm_error = np.sum((Y_hat-test_Y)**2, axis=1)/np.linalg.norm(test_Y, axis=1)
-        mean_norm_error = np.mean(norm_error)
-        median_norm_error = np.median(norm_error)
+        Y = Y.detach().numpy()
+        err = np.sum((Y_hat-Y)**2, axis=1)/np.linalg.norm(Y, axis=1)**2
+        mean_norm_error = np.mean(err)
+        median_norm_error = np.median(err)
         return mean_norm_error, median_norm_error, node_mse.detach().numpy()
 
-"""
-class LinearModel(Model):
+
+class LinearModel:
     def __init__(self, N, loss_func=nn.MSELoss(), verbose=False):
-        self.arch = LinearReg(N)
-        self.N = N
+        self.Beta = np.zeros((N, N))
         self.loss = loss_func
         self.verbose = verbose
 
     def count_params(self):
-        return self.N**2
+        return self.Beta.shape[0]**2
 
-    def fit(self, train_X, train_Y):
-        X = train_X.view([train_X.shape[0], train_X.shape[2]])
-        Y = train_Y.view([train_Y.shape[0], train_Y.shape[2]])
-        X2 = X.t().mm(X)
-        self.arch.Beta = X2.pinverse().mm(X.t()).mm(Y)
+    def fit(self, train_X, train_Y, val_X=None, val_Y=None):
+        X = train_X.view([train_X.shape[0], train_X.shape[2]]).detach().numpy()
+        Y = train_Y.view([train_Y.shape[0], train_Y.shape[2]]).detach().numpy()
+        self.Beta = np.linalg.pinv(X.T.dot(X)).dot(X.T).dot(Y)
 
-        if self.verbose:
-            Y_est = X.mm(self.arch.Beta)
-            print(Y_est.shape)
-            print(X.shape)
-            print(self.arch.Beta.shape)
-            err = np.sum((Y_est-Y)**2, axis=1)/np.linalg.norm(Y)**2
-            print('Train Error:', np.mean(err), np.median(err))
-"""
+    def test(self, test_X, test_Y):
+        shape = [test_X.shape[0], test_X.shape[2]]
+        X = test_X.view(shape).detach().numpy()
+        Y = test_Y.view(shape).detach().numpy()
+        Y_hat = X.dot(self.Beta)
+
+        mse = self.loss(Tensor(Y_hat), test_Y.view(shape))
+        err = np.sum((Y_hat-Y)**2, axis=1)/np.linalg.norm(Y, axis=1)**2
+        return np.mean(err), np.median(err), mse.detach().numpy()
