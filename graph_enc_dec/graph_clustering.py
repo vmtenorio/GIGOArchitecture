@@ -16,11 +16,11 @@ WEI = 4
 # NOTE: maybe separate in 2 classes?
 class MultiResGraphClustering():
     """
-    This class computes a bottom-up multiresolution hierarchichal clustering of the given
-    graph. An adjacency matrix may be estimated for each resolution level based on
-    the relations of the nodes grouped in the different clusters. Additionaly, 
-    upsampling and downsampling matrices may be estimated for going from different
-    levels of the hierarchy.s
+    This class computes a bottom-up multiresolution hierarchichal clustering
+    of the given graph. An adjacency matrix may be estimated for each
+    resolution level based on the relations of the nodes grouped in the
+    different clusters. Additionaly, upsampling and downsampling matrices
+    may be estimated for going from different levels of the hierarchy.
     """
     # k represents the size of the root cluster
     def __init__(self, G, n_clusts, k, algorithm='spectral_clutering', 
@@ -60,7 +60,7 @@ class MultiResGraphClustering():
         # Only for Dec
         self.descendances = []
         self.Us = []
-    
+
         self.compute_clusters(n_clusts, method)
         self.compute_hierarchy_A(up_method)
 
@@ -68,7 +68,7 @@ class MultiResGraphClustering():
             self.compute_Downs()
         elif n_clusts[0] < n_clusts[-1]:
             self.compute_Ups()
-                
+
     def distance_clustering(self):
         """
         Obtain the matrix Z of distances between the different agglomeartive
@@ -76,8 +76,8 @@ class MultiResGraphClustering():
         as a meassure of similarity
         """
         D = dijkstra(self.G.W)
-        D = D[np.triu_indices_from(D,1)]
-        self.Z = linkage(D,self.link_fun)
+        D = D[np.triu_indices_from(D, 1)]
+        self.Z = linkage(D, self.link_fun)
 
     def spectral_clutering(self):
         """
@@ -92,7 +92,7 @@ class MultiResGraphClustering():
 
     def compute_clusters(self, n_clusts, method):
         self.cluster_alg()
-        for i,t in enumerate(n_clusts):
+        for i, t in enumerate(n_clusts):
             if i > 0 and t == n_clusts[i-1]:
                 self.sizes.append(t)
                 continue
@@ -100,10 +100,10 @@ class MultiResGraphClustering():
                 self.labels.append(np.arange(1, self.G.N+1))
                 self.sizes.append(self.G.N)
                 continue
-            # t represent de relative distance, so it is necessary to obtain the 
-            # real desired distance
+            # t represent de relative distance, so it is necessary to
+            # obtain the # real desired distance
             if method == 'distance':
-                t = t*self.Z[-self.k,2]
+                t = t*self.Z[-self.k, 2]
             level_labels = fcluster(self.Z, t, criterion=method)
             self.labels.append(level_labels)
             self.sizes.append(np.unique(level_labels).size)
@@ -125,7 +125,8 @@ class MultiResGraphClustering():
                 # Check if all has the same value!!!
                 n_parents = np.unique(self.labels[i+1][indexes]).size
                 if n_parents != 1:
-                    raise RuntimeError("child {} belong to {} parents".format(j,n_parents))
+                    raise RuntimeError("child {} belong to {} parents"
+                                       .format(j, n_parents))
 
                 parent_id = self.labels[i][indexes][0]
                 self.descendances[i].append(parent_id)
@@ -142,7 +143,7 @@ class MultiResGraphClustering():
             descendance = np.asarray(self.descendances[i])
             U = np.zeros((sizes[i+1], sizes[i]))
             for j in range(sizes[i+1]):
-                U[j,descendance[j]-1] = 1
+                U[j, descendance[j]-1] = 1
             self.Us.append(U)
 
     def compute_hierarchy_ascendance(self):
@@ -167,7 +168,7 @@ class MultiResGraphClustering():
             D = np.zeros((sizes[i+1], sizes[i]))
             for j in range(sizes[i+1]):
                 indexes = np.where(ascendance == j+1)
-                D[j,indexes] = 1
+                D[j, indexes] = 1
             self.Ds.append(D)
 
     def compute_hierarchy_A(self, up_method):
@@ -178,25 +179,21 @@ class MultiResGraphClustering():
         sizes = list(dict.fromkeys(self.sizes))
         for i in range(len(sizes)):
             N = sizes[i]
-            #if N == self.G.N:
-            #    self.As.append(A)
-            #    continue
-            #else:
             self.As.append(np.zeros((N, N)))
 
             # Normalize matrix A in here??
             inter_clust_links = 0
             for j in range(N-1):
                 nodes_c1 = np.where(self.labels[i] == j+1)[0]
-                for k in range(j+1,N):
+                for k in range(j+1, N):
                     nodes_c2 = np.where(self.labels[i] == k+1)[0]
-                    sub_A = A[nodes_c1,:][:,nodes_c2]
+                    sub_A = A[nodes_c1, :][:, nodes_c2]
 
                     if up_method == BIN and np.sum(sub_A) > 0:
-                        self.As[i][j,k] = self.As[i][k,j] = 1
+                        self.As[i][j, k] = self.As[i][k, j] = 1
                     if up_method == WEI:
-                        self.As[i][j,k] = np.sum(sub_A)
-                        self.As[i][k,j] = self.As[i][j,k]
+                        self.As[i][j, k] = np.sum(sub_A)
+                        self.As[i][k, j] = self.As[i][j, k]
                         inter_clust_links += np.sum(sub_A)
             if up_method == WEI:
                 self.As[i] = self.As[i]/inter_clust_links
@@ -204,11 +201,11 @@ class MultiResGraphClustering():
 
     def plot_labels(self, show=True):
         n_labels = len(self.labels)
-        _, axes= plt.subplots(1, n_labels)
+        _, axes = plt.subplots(1, n_labels)
         self.G.set_coordinates()
         for i in range(n_labels):
             self.G.plot_signal(self.labels[i], ax=axes[i])
-        if show:    
+        if show:
             plt.show()
 
     def plot_As(self, show=True):
@@ -216,7 +213,7 @@ class MultiResGraphClustering():
         for i in range(len(self.As)):
             G = Graph(self.As[i])
             G.set_coordinates()
-            axes[0,i].spy(self.As[i])
-            G.plot(ax=axes[1,i])
+            axes[0, i].spy(self.As[i])
+            G.plot(ax=axes[1, i])
         if show:
             plt.show()
