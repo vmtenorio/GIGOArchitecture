@@ -63,9 +63,9 @@ optimizer = "ADAM"
 learning_rate = 0.01
 beta1 = 0.9
 beta2 = 0.999
-decay_rate = 0.9
-nonlin = nn.ReLU
-#nonlin = nn.Sigmoid
+decay_rate = 0.99
+#nonlin = nn.ReLU
+nonlin = nn.Tanh
 
 # Define the datamodel
 if dataset_sel == "sourceloc":
@@ -94,4 +94,4 @@ model_param['eval_freq'] = eval_freq
 model_param['tb_log'] = TB_LOG
 
 model = Model(**model_param)
-model.eval(dataset.train_data, dataset.train_labels, dataset.test_data, dataset.test_labels)
+model.eval(dataset.train_data, dataset.train_labels, dataset.test_data, dataset.test_labels, dataset.test_data, dataset.test_labels)

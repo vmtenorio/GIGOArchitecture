@@ -24,9 +24,10 @@ L_filter = 5
 
 num_epochs = 40
 batch_size = 100
+max_non_dec = 5
 
 # Graph parameters
-N = 64
+N = 128
 c = 4
 G_params = {}
 G_params['type'] = data_sets.SBM #SBM or ER
@@ -39,10 +40,8 @@ eps1 = 0.1
 eps2 = 0.3
 
 # NN Parameters
-arch_type = 'basic'
-Ki = 3
+Ki = 2
 Ko = 2
-L = 2
 Fi = [1,16,N]
 Fo = [N,16,1]
 
@@ -66,6 +65,7 @@ model_param['loss_func'] = loss_func
 model_param['num_epochs'] = num_epochs
 model_param['batch_size'] = batch_size
 model_param['eval_freq'] = eval_freq
+model_param['max_non_dec'] = max_non_dec
 model_param['tb_log'] = TB_LOG
 
 mse_losses = []
@@ -76,7 +76,7 @@ for ng in range(N_graphs):
     Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, seed=SEED)
 
     # Define the data model
-    data = data_sets.DiffusedSparse2GS(Gx, Gy, N_samples, L_filter, G_params['k'])
+    data = data_sets.LinearDS2GS(Gx, Gy, N_samples, L_filter, G_params['k'])
     data.to_unit_norm()
 
     Gx.compute_laplacian('normalized')
@@ -94,7 +94,9 @@ for ng in range(N_graphs):
 print("--------------------------------------Ended simulation--------------------------------------")
 print("2G difussed deltas architecture parameters")
 print("Graph: N = {}; c = {}".format(str(N), str(c)))
-print("MSE loss = ".format(str(mse_losses)))
-print("MSE loss mean = ".format(np.mean(mse_losses)))
-print("Mean Squared Error = ".format(str(mean_norm_errs)))
-print("Mean Squared Error Mean = ".format(np.mean(mean_norm_errs)))
+#print("MSE loss = {}".format(str(mse_losses)))
+print("MSE loss mean = {}".format(np.mean(mse_losses)))
+#print("Mean Squared Error = {}".format(str(mean_norm_errs)))
+print("Mean Norm Error = {}".format(np.mean(mean_norm_errs)))
+print("Median error = {}".format(np.median(mean_norm_errs)))
+print("STD = {}".format(np.std(mean_norm_errs)))

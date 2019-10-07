@@ -3,14 +3,16 @@ import torch.optim as optim
 import numpy as np
 import time
 from tensorboardX import SummaryWriter
+import copy
 
 DEBUG = False
+DEEP_DEBUG = False
 
 class Model:
     def __init__(self,
                 arch,
                 optimizer, learning_rate, beta1, beta2, decay_rate, loss_func,
-                num_epochs, batch_size, eval_freq,
+                num_epochs, batch_size, eval_freq, max_non_dec,
                 tb_log):
         # Define architecture
         self.arch = arch
@@ -26,9 +28,10 @@ class Model:
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.eval_freq = eval_freq
+        self.max_non_dec = max_non_dec
         self.tb_log = tb_log
 
-        if DEBUG:
+        if DEEP_DEBUG:
             for p in self.arch.parameters():
                 p.register_hook(lambda grad: print(grad))
 
@@ -43,6 +46,9 @@ class Model:
         t_init = time.time()
         t_step = t_init
 
+        best_err = 10000000
+        cont = 0
+
         for i in range(1, self.num_epochs+1):
             for j in range(1, num_steps + 1):
                 idx = np.random.permutation(n_samples)[0:self.batch_size]
@@ -56,8 +62,20 @@ class Model:
                 self.train(batch_data, batch_labels)
 
             self.scheduler.step()
+            loss, acc, mean_err = self.predict(val_data, val_labels, i)
+
+            # Samuel's early stopping
+            if loss.data*1.005 < best_err:
+                best_err = loss.data
+                best_net = copy.deepcopy(self.arch)
+                cont = 0
+            else:
+                if cont >= self.max_non_dec:
+                    print("Early Stopping at {} epochs.".format(str(i)))
+                    break
+                cont += 1
+
             if i % self.eval_freq == 0:
-                loss, acc, mean_err = self.predict(val_data, val_labels, i)
 
                 print('Epoch {}/{}'.format(i, self.num_epochs), end=" - ")
                 if self.class_type:
@@ -71,6 +89,9 @@ class Model:
                 if self.tb_log:
                     self.writer.add_scalar('perf/accuracy', acc, i)
                     self.writer.add_scalar('perf/loss', loss.item(), i)
+
+        # Taking the best architecture from early stopping
+        self.arch = best_net
         loss, acc, mean_err = self.predict(data, labels)
         if self.class_type:
             print('Training Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*data.shape[0])), data.shape[0]), end=" - ")
@@ -107,15 +128,15 @@ class Model:
                 # Item function returns the scalar in a 1 element tensor
                 num_ok = torch.sum(torch.eq(index, labels)).item()
                 acc = float(num_ok / data.shape[0])
+                mean_norm_error = 0.0
             else:
                 acc = 0.0
-
-            # Samuel mean norm error
-            y_pred_np = y_pred.detach().numpy()
-            labels_np = labels.detach().numpy()
-            #print(y_pred_np, labels_np)
-            norm_error = np.sum((y_pred_np-labels_np)**2,axis=1)/np.linalg.norm(labels_np,axis=1)
-            mean_norm_error = np.mean(norm_error)
+                # Samuel mean norm error
+                y_pred_np = y_pred.detach().numpy()
+                labels_np = labels.detach().numpy()
+                #print(y_pred_np, labels_np)
+                norm_error = np.sum((y_pred_np-labels_np)**2,axis=1)/np.linalg.norm(labels_np,axis=1)
+                mean_norm_error = np.mean(norm_error)
 
         return mse_loss, acc, mean_norm_error
 
@@ -149,7 +170,7 @@ class Model:
         # Run the architecture
         logits = self.arch(data)
 
-        if DEBUG:
+        if DEEP_DEBUG:
             print('Logits')
             print(logits)
             print(logits.shape)
@@ -161,7 +182,7 @@ class Model:
         # print(loss.grad_fn)
         #print(loss)
         loss.backward()
-        if DEBUG:
+        if DEEP_DEBUG:
             for p in self.arch.parameters():
                 print(p)
         self.optim.step()
