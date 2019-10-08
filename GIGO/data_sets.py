@@ -4,6 +4,7 @@ import torch
 import sys
 sys.path.append('..')
 from cnngs_src import graphtools, datatools
+import pygsp
 
 HOURS_A_DAY = 24
 
@@ -98,6 +99,44 @@ class GIGOSourceLoc:
 
         self.train_data, self.train_labels, self.test_data, self.test_labels = \
             datatools.train_test_split(self.data, self.labels, train_test_coef)
+
+class GIGOSourceLocMPSBM:
+    """
+    Class for source localization problem but with the GIGO architecture.
+    The data to predict is the community where the signal is generated.
+    Generates Multiparameter SBM graph and data and labels for the NN
+    Constructor args:
+        N: number of nodes of the graph
+        k: number of communities
+        p: vector of lengh k with the probabilities of connecting nodes
+            in each community
+        q: matrix of size k*k
+        N_samples: number of training samples to generate
+        N_test: number of testing and validation samples
+        maxdiff: maximun diffusion for the sample generation
+    """
+    def __init__(self, N, k, p, q, N_samples, maxdiff):
+        self.N = N
+        self.k = k
+        self.N_samples = N_samples
+
+        # Create the GSO
+        self.mapping = np.floor(k * np.rand(N))
+        self.Graph = pygsp.graphs.StochasticBlockModel(N, k, z=self.mapping, p=p, q=q)
+        self.Cgraph_unnorm = graphtools.create_cGraph(self.Graph.W, self.mapping)
+        self.Ngraph = graphtools.norm_graph(self.Graph.W)
+        self.Cgraph = graphtools.norm_graph(self.Cgraph_unnorm)
+
+        # Generate the data
+        self.train_data, self.train_labels = self.create_samples(N_samples, maxdiff)
+        self.val_data, self.val_labels = self.create_samples(N_test, maxdiff)
+        self.test_data, self.test_labels = self.create_samples(N_test, maxdiff)
+
+    def create_samples(N_samples, maxdiff):
+        labels = np.floor(self.N*np.random.rand(N_samples))
+        data = datatools.create_samples(self.Ngraph, labels, maxdiff).transpose()   # To be T x N
+        labels = np.asarray([self.mapping[i] for i in labels])
+        return data, labels
 
 class FlightData:
     def __init__(self, graph_route, data_route, train_test_coef, fut_time_pred):

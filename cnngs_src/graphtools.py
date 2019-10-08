@@ -54,6 +54,16 @@ def create_SBMc(N_nodes, N_comm, p_ii, p_ij, mapping):
                 C_graph[mapping[j], mapping[i]] += 1
     return N_graph, C_graph
 
+def create_cGraph(N_graph, mapping):
+    N = N_graph.shape[0]
+    k = np.max(mapping)
+    C_graph = np.zeros(k,k)
+    for i in range(N):
+        for j in range(i+1,N):
+            C_graph[mapping[i], mapping[j]] += 1
+            C_graph[mapping[j], mapping[i]] += 1
+    return C_graph
+
 def modify_graph(S, vals_edit):
     N = S.shape[0]
     assert S.shape[0] == S.shape[1]

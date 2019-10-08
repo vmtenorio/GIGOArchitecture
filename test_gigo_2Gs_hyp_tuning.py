@@ -59,8 +59,6 @@ model_param['eval_freq'] = eval_freq
 model_param['max_non_dec'] = max_non_dec
 model_param['tb_log'] = TB_LOG
 
-mse_losses = []
-mean_norm_errs = []
 
 # Hyperparameters tuning
 
@@ -146,7 +144,6 @@ if __name__ == "__main__":
                                 print("Testing: N = {}, c = {}, F = {}, K = {}, BS = {}, LR = {}, Median = {}".format(\
                                         n, comm, f, k, bs, lr, m))
 
-                                # More parameters to be added
                                 t_init = time()
                                 mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err = test_arch(G_params, model_param, m, f, fo, k, k)
                                 t_spent = time() - t_init
