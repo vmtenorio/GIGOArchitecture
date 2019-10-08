@@ -158,11 +158,12 @@ class GIGOArch(nn.Module):
 
         self.GFLo = nn.Sequential(*gflo)
 
-        print("Architecture:")
-        print("Input Graph N_nodes: {}, Output graph N_nodes: {}".format(self.Ni, self.No))
-        print("Fin: {}, Fout: {}, Kin: {}, Kout: {}".format(self.Fi, self.Fo, self.Ki, self.Ko))
-        print("Non lin: " + str(self.nonlin))
-        print("N params: " + str(n_params))
+        if DEBUG:
+            print("Architecture:")
+            print("Input Graph N_nodes: {}, Output graph N_nodes: {}".format(self.Ni, self.No))
+            print("Fin: {}, Fout: {}, Kin: {}, Kout: {}".format(self.Fi, self.Fo, self.Ki, self.Ko))
+            print("Non lin: " + str(self.nonlin))
+            print("N params: " + str(n_params))
 
     def forward(self, x):
 

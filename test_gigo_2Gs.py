@@ -27,7 +27,7 @@ batch_size = 100
 max_non_dec = 5
 
 # Graph parameters
-N = 128
+N = 64
 c = 4
 G_params = {}
 G_params['type'] = data_sets.SBM #SBM or ER
@@ -40,10 +40,10 @@ eps1 = 0.1
 eps2 = 0.3
 
 # NN Parameters
-Ki = 2
-Ko = 2
-Fi = [1,16,N]
-Fo = [N,16,1]
+Ki = 4
+Ko = 4
+Fi = [1,32,N]
+Fo = [N,32,1]
 
 loss_func = nn.MSELoss()
 

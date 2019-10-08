@@ -71,11 +71,12 @@ class Model:
                 cont = 0
             else:
                 if cont >= self.max_non_dec:
-                    print("Early Stopping at {} epochs.".format(str(i)))
+                    if DEBUG:
+                        print("Early Stopping at {} epochs.".format(str(i)))
                     break
                 cont += 1
 
-            if i % self.eval_freq == 0:
+            if i % self.eval_freq == 0 and DEBUG:
 
                 print('Epoch {}/{}'.format(i, self.num_epochs), end=" - ")
                 if self.class_type:
@@ -93,10 +94,11 @@ class Model:
         # Taking the best architecture from early stopping
         self.arch = best_net
         loss, acc, mean_err = self.predict(data, labels)
-        if self.class_type:
-            print('Training Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*data.shape[0])), data.shape[0]), end=" - ")
-        print('Training Loss: {}'.format(loss), end=" - ")
-        print('Training Mean Err: {:.8f}'.format(mean_err))
+        if DEBUG:
+            if self.class_type:
+                print('Training Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*data.shape[0])), data.shape[0]), end=" - ")
+            print('Training Loss: {}'.format(loss), end=" - ")
+            print('Training Mean Err: {:.8f}'.format(mean_err))
 
     def predict(self, data, labels, it=None):
         """
