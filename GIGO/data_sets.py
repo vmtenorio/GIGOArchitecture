@@ -5,6 +5,7 @@ import sys
 sys.path.append('..')
 from cnngs_src import graphtools, datatools
 import pygsp
+import matplotlib.pyplot as plt
 
 HOURS_A_DAY = 24
 
@@ -110,21 +111,21 @@ class GIGOSourceLocMPSBM:
         k: number of communities
         p: vector of lengh k with the probabilities of connecting nodes
             in each community
-        q: matrix of size k*k
+        q: matrix of size k*k with the inter-communities probability of
+            connecting nodes
         N_samples: number of training samples to generate
         N_test: number of testing and validation samples
         maxdiff: maximun diffusion for the sample generation
     """
-    def __init__(self, N, k, p, q, N_samples, maxdiff):
+    def __init__(self, N, k, p, q, N_samples, N_test, maxdiff):
         self.N = N
         self.k = k
-        self.N_samples = N_samples
 
         # Create the GSO
-        self.mapping = np.floor(k * np.rand(N))
+        self.mapping = np.floor(k * np.random.rand(N)).astype(int)
         self.Graph = pygsp.graphs.StochasticBlockModel(N, k, z=self.mapping, p=p, q=q)
-        self.Cgraph_unnorm = graphtools.create_cGraph(self.Graph.W, self.mapping)
-        self.Ngraph = graphtools.norm_graph(self.Graph.W)
+        self.Cgraph_unnorm = graphtools.create_cGraph(self.Graph.W.todense(), self.mapping)
+        self.Ngraph = graphtools.norm_graph(self.Graph.W.todense())
         self.Cgraph = graphtools.norm_graph(self.Cgraph_unnorm)
 
         # Generate the data
@@ -132,8 +133,8 @@ class GIGOSourceLocMPSBM:
         self.val_data, self.val_labels = self.create_samples(N_test, maxdiff)
         self.test_data, self.test_labels = self.create_samples(N_test, maxdiff)
 
-    def create_samples(N_samples, maxdiff):
-        labels = np.floor(self.N*np.random.rand(N_samples))
+    def create_samples(self, N_samples, maxdiff):
+        labels = np.floor(self.N*np.random.rand(N_samples)).astype(int)
         data = datatools.create_samples(self.Ngraph, labels, maxdiff).transpose()   # To be T x N
         labels = np.asarray([self.mapping[i] for i in labels])
         return data, labels

@@ -55,13 +55,23 @@ def create_SBMc(N_nodes, N_comm, p_ii, p_ij, mapping):
     return N_graph, C_graph
 
 def create_cGraph(N_graph, mapping):
+    """
+    Creates a graph of communities from the SBM graph of nodes, and the mapping
+    of each node to a community.
+    Arguments
+        N_graph: adjacency matrix or laplacian of the SBM graph
+        mapping: array of lenght N (number of nodes) that maps each node to a
+                    community.
+    """
     N = N_graph.shape[0]
-    k = np.max(mapping)
-    C_graph = np.zeros(k,k)
+    k = np.max(mapping) + 1     # It gives a bad result if the last community does not have nodes
+    C_graph = np.zeros((k,k))
     for i in range(N):
         for j in range(i+1,N):
-            C_graph[mapping[i], mapping[j]] += 1
-            C_graph[mapping[j], mapping[i]] += 1
+            if N_graph[i,j] == 1:
+                C_graph[mapping[i], mapping[j]] += 1
+                if mapping[i] != mapping[j]:
+                    C_graph[mapping[j], mapping[i]] += 1
     return C_graph
 
 def modify_graph(S, vals_edit):

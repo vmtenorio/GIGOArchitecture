@@ -5,7 +5,8 @@ import time
 from tensorboardX import SummaryWriter
 import copy
 
-DEBUG = False
+VERB = True
+DEBUG = True
 DEEP_DEBUG = False
 
 class Model:
@@ -62,27 +63,29 @@ class Model:
                 self.train(batch_data, batch_labels)
 
             self.scheduler.step()
-            loss, acc, mean_err = self.predict(val_data, val_labels, i)
 
             # Samuel's early stopping
-            if loss.data*1.005 < best_err:
-                best_err = loss.data
-                best_net = copy.deepcopy(self.arch)
-                cont = 0
-            else:
-                if cont >= self.max_non_dec:
-                    if DEBUG:
-                        print("Early Stopping at {} epochs.".format(str(i)))
-                    break
-                cont += 1
+            if self.max_non_dec != None:
+                loss, acc, mean_err = self.predict(val_data, val_labels, i)
+                if loss.data*1.005 < best_err:
+                    best_err = loss.data
+                    best_net = copy.deepcopy(self.arch)
+                    cont = 0
+                else:
+                    if cont >= self.max_non_dec:
+                        if VERB:
+                            print("Early Stopping at {} epochs.".format(str(i)))
+                        break
+                    cont += 1
 
-            if i % self.eval_freq == 0 and DEBUG:
-
+            if i % self.eval_freq == 0 and VERB:
+                loss, acc, mean_err = self.predict(val_data, val_labels, i)
                 print('Epoch {}/{}'.format(i, self.num_epochs), end=" - ")
                 if self.class_type:
                     print('Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*val_data.shape[0])), val_data.shape[0]), end=" - ")
                 print('Loss: {:.8f}'.format(loss), end=" - ")
-                print('Mean Err: {:.8f}'.format(mean_err), end=" - ")
+                if not self.class_type:
+                    print('Mean Err: {:.8f}'.format(mean_err), end=" - ")
                 now = time.time()
                 print('Time: {} (step) - {} (since beginning)'.format(round(now-t_step, 2), round(now-t_init,2)))
                 t_step = now
@@ -92,9 +95,10 @@ class Model:
                     self.writer.add_scalar('perf/loss', loss.item(), i)
 
         # Taking the best architecture from early stopping
-        self.arch = best_net
+        if self.max_non_dec != None:
+            self.arch = best_net
         loss, acc, mean_err = self.predict(data, labels)
-        if DEBUG:
+        if VERB:
             if self.class_type:
                 print('Training Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*data.shape[0])), data.shape[0]), end=" - ")
             print('Training Loss: {}'.format(loss), end=" - ")

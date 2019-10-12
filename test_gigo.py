@@ -39,8 +39,6 @@ batch_size = 100
 
 # Graph parameters
 N = 128
-select_graph = 'SBM'
-p_ER = 0.4
 c = 8
 N_classes = c
 p_ii_SBM = 0.8
