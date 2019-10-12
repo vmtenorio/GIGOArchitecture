@@ -5,6 +5,7 @@ from GIGO import layers
 import numpy as np
 
 DEBUG = False
+ARCH_INFO = True
 
 class BasicArch(nn.Module):
     def __init__(self,
@@ -158,7 +159,7 @@ class GIGOArch(nn.Module):
 
         self.GFLo = nn.Sequential(*gflo)
 
-        if DEBUG:
+        if ARCH_INFO:
             print("Architecture:")
             print("Input Graph N_nodes: {}, Output graph N_nodes: {}".format(self.Ni, self.No))
             print("Fin: {}, Fout: {}, Kin: {}, Kout: {}".format(self.Fi, self.Fo, self.Ki, self.Ko))

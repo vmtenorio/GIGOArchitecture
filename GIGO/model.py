@@ -6,7 +6,7 @@ from tensorboardX import SummaryWriter
 import copy
 
 VERB = True
-DEBUG = True
+DEBUG = False
 DEEP_DEBUG = False
 
 class Model:

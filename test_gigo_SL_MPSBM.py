@@ -23,7 +23,7 @@ eval_freq = 4
 
 maxdiff = 10
 
-num_epochs = 100
+num_epochs = 60
 batch_size = 100
 max_non_dec = None
 

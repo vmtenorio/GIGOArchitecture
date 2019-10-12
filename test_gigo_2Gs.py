@@ -10,7 +10,7 @@ from GIGO.model import Model
 from graph_enc_dec import data_sets
 from GIGO.arch import GIGOArch
 
-SEED = 15
+SEED = None
 TB_LOG = True
 
 # Parameters
@@ -22,7 +22,7 @@ N_graphs = 1
 
 L_filter = 5
 
-num_epochs = 40
+num_epochs = 200
 batch_size = 100
 max_non_dec = 5
 
@@ -40,15 +40,15 @@ eps1 = 0.1
 eps2 = 0.3
 
 # NN Parameters
-Ki = 4
-Ko = 4
+Ki = 2
+Ko = 2
 Fi = [1,32,N]
 Fo = [N,32,1]
 
 loss_func = nn.MSELoss()
 
 optimizer = "ADAM"
-learning_rate = 0.01
+learning_rate = 0.03
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.99
