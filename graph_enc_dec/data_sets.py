@@ -66,7 +66,29 @@ def create_graph(ps, seed=None):
         raise RuntimeError('Unknown graph type')
 
 
-def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
+def perturbate_percentage(Gx, creat, destr):
+    A_x = Gx.W.todense()
+    A_y_triu = np.triu(A_x, 1)
+    A_y_triu[np.tril_indices(Gx.N)] = -1
+
+    # Create links
+    no_link_i = np.where(A_y_triu == 0)
+    links_c = np.random.choice(no_link_i[0].size, int(Gx.Ne * creat/100))
+    idx_c = [no_link_i[0][links_c], no_link_i[1][links_c]]
+
+    # Destroy links
+    link_i = np.where(A_y_triu == 1)
+    links_d = np.random.choice(link_i[0].size, int(Gx.Ne * destr/100))
+    idx_d = [link_i[0][links_d], link_i[1][links_d]]
+
+    A_y_triu[np.tril_indices(Gx.N)] = 0
+    A_y_triu[idx_c] = 1
+    A_y_triu[idx_d] = 0
+    A_y = A_y_triu + A_y_triu.T
+    return A_y
+
+
+def perturbated_graphs(g_params, eps_c=5, eps_d=5, pct=True, seed=None):
     """
     Create 2 closely related graphs. The first graph is created following the
     indicated model and the second is a perturbated version of the previous
@@ -79,23 +101,25 @@ def perturbated_graphs(g_params, eps_c, eps_d, seed=None):
         - eps_d: probability for destroying existing edges
     """
     Gx = create_graph(g_params, seed)
-    A_x = Gx.A.todense()
-    # TODO: make a test for ensuring both graphs have same nodes, comms, etc
-    # they should only differ on the links and both should be sym
-    link_ind = np.where(A_x == 1)
-    no_link_ind = np.where(A_x != 1)
-    mask_c = np.random.choice([0, 1], p=[1-eps_c, eps_c], size=no_link_ind[0].shape)
-    mask_d = np.random.choice([0, 1], p=[1-eps_d, eps_d], size=link_ind[0].shape)
-
-    A_y = A_x
-    A_y[link_ind] = np.logical_xor(A_y[link_ind], mask_d).astype(int)
-    A_y[no_link_ind] = np.logical_xor(A_y[no_link_ind], mask_c).astype(int)
-    A_y = np.triu(A_y, 1)
-    A_y = A_y + A_y.T
+    if pct:
+        A_y = perturbate_percentage(Gx, eps_c, eps_d)
+    else:
+        # TODO: review code
+        A_x = Gx.A.todense()
+        link_ind = np.where(A_x == 1)
+        no_link_ind = np.where(A_x != 1)  # Check! May take values from diag 
+        mask_c = np.random.choice([0, 1], p=[1-eps_c, eps_c],
+                                  size=no_link_ind[0].shape)
+        mask_d = np.random.choice([0, 1], p=[1-eps_d, eps_d],
+                                  size=link_ind[0].shape)
+        A_y = A_x
+        A_y[link_ind] = np.logical_xor(A_y[link_ind], mask_d).astype(int)
+        A_y[no_link_ind] = np.logical_xor(A_y[no_link_ind], mask_c).astype(int)
+        A_y = np.triu(A_y, 1)
+        A_y = A_y + A_y.T
 
     Gy = Graph(A_y)
-    if not Gy.is_connected():
-        raise RuntimeError('Could not create connected graph Gy')
+    assert Gy.is_connected(), 'Could not create connected graph Gy'
     Gx.set_coordinates('community2D')
     Gy.set_coordinates(Gx.coords)
     Gy.info = {'node_com': Gx.info['node_com'],
@@ -137,6 +161,7 @@ class DiffusedSparse2GS:
 
     def median_neighbours_nodes(self, X, G):
         X_aux = np.zeros(X.shape)
+        # X = np.tanh(X)
         for i in range(G.N):
             _, neighbours = np.asarray(G.W.todense()[i, :] != 0).nonzero()
             X_aux[:, i] = np.median(X[:, np.append(neighbours, i)], axis=1)
@@ -234,10 +259,10 @@ class DiffusedSparse2GS:
 
 class LinearDS2GS(DiffusedSparse2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=False):
+                 max_d=1, median=False, same_coeffs=False):
         super(LinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts, min_d,
                                           max_d)
-        self.random_diffusing_filters(L)
+        self.random_diffusing_filters(L, same_coeffs)
 
         # Create samples
         self.train_S = self.sparse_S(self.n_train, n_delts, min_d, max_d)
@@ -258,15 +283,15 @@ class LinearDS2GS(DiffusedSparse2GS):
             self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
             self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
-    def random_diffusing_filters(self, L, same_coeffs=False):
+    def random_diffusing_filters(self, L, same_coeffs):
         """
         Create two lineal random diffusing filters with L random coefficients
         using the graphs shift operators from Gx and Gy.
         Arguments:
             - L: number of filter coeffcients
         """
-        hs_x = np.random.randn(L)
-        hs_y = hs_x if same_coeffs else np.random.randn(L)
+        hs_x = np.random.rand(L)
+        hs_y = hs_x if same_coeffs else np.random.rand(L)
         self.Hx = np.zeros(self.Gx.W.shape)
         self.Hy = np.zeros(self.Gy.W.shape)
         Sx = self.Gx.W.todense()
@@ -278,18 +303,22 @@ class LinearDS2GS(DiffusedSparse2GS):
 
 class NonLinearDS2GS(DiffusedSparse2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=False):
+                 max_d=1, median=False, same_coeffs=False):
         super(NonLinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts,
                                              min_d, max_d)
+
+        # TODO: check that linear is still a poor approximation for this
+        h_x = np.random.rand(L)
+        h_y = h_x if same_coeffs else np.random.rand(L)
         self.train_S = self.sparse_S(self.n_train, n_delts, min_d, max_d)
         self.val_S = self.sparse_S(self.n_val, n_delts, min_d, max_d)
         self.test_S = self.sparse_S(self.n_test, n_delts, min_d, max_d)
-        self.train_X = self.signal_diffusion(self.train_S, self.Gx, L)
-        self.train_Y = self.signal_diffusion(self.train_S, self.Gy, L)
-        self.val_X = self.signal_diffusion(self.val_S, self.Gx, L)
-        self.val_Y = self.signal_diffusion(self.val_S, self.Gy, L)
-        self.test_X = self.signal_diffusion(self.test_S, self.Gx, L)
-        self.test_Y = self.signal_diffusion(self.test_S, self.Gy, L)
+        self.train_X = self.signal_diffusion(self.train_S, self.Gx, h_x)
+        self.train_Y = self.signal_diffusion(self.train_S, self.Gy, h_y)
+        self.val_X = self.signal_diffusion(self.val_S, self.Gx, h_x)
+        self.val_Y = self.signal_diffusion(self.val_S, self.Gy, h_y)
+        self.test_X = self.signal_diffusion(self.test_S, self.Gx, h_x)
+        self.test_Y = self.signal_diffusion(self.test_S, self.Gy, h_y)
 
         if median:
             self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
@@ -299,11 +328,10 @@ class NonLinearDS2GS(DiffusedSparse2GS):
             self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
             self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
-    def signal_diffusion(self, S, G, L):
+    def signal_diffusion(self, S, G, hs):
         S_T = S.T
         X_T = np.zeros(S_T.shape)
         A = G.W.todense()
-        h = np.random.rand(L)
-        for l in range(L):
-            X_T += h[l]*np.linalg.matrix_power(A, l).dot(np.sign(S_T)*S_T**l)
+        for l, h in enumerate(hs):
+            X_T += h*np.linalg.matrix_power(A, l).dot(np.sign(S_T)*S_T**l)
         return X_T.T
