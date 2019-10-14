@@ -12,10 +12,47 @@ from graph_enc_dec.architecture import GraphEncoderDecoder, GraphDownsampling, G
 
 SEED = 15
 
+
 # TODO: test graph creation --> check graphs are symm
+class PerturbatedGraphsTest(unittest.TestCase):
+    def setUp(self):
+        self.G_params = {}
+        self.G_params['type'] = ds.SBM # SBM or ER
+        self.G_params['N'] = N = 256
+        self.G_params['k'] = k = 4
+        self.G_params['p'] = 0.20
+        self.G_params['q'] = 0.015/4
+        self.G_params['type_z'] = ds.RAND
+
+    def test_graph_reproducibility(self):
+        np.random.seed(SEED)
+        Gx, Gy = ds.perturbated_graphs(self.G_params, 10,
+                                       10, pct=True, seed=SEED)
+        print('Link x:', Gx.Ne)
+        print('Link y:', Gy.Ne)
+        self.assertEqual(1664, Gx.Ne)
+        self.assertEqual(1672, Gy.Ne)
+        self.assertAlmostEqual(0.1935096153846, np.sum(Gx.A != Gy.A)/2/Gx.Ne)
+
+    def test_percentage_perturbation(self):
+        create = destroy = 5
+        up_err_margin = (create + destroy + 2)/100
+        bottom_err_margin = (create + destroy - 2)/100
+        Gx, Gy = ds.perturbated_graphs(self.G_params, create,
+                                       destroy, pct=True, seed=SEED)
+        Ax = Gx.W.todense()
+        Ay = Gy.W.todense()
+        self.assertFalse(Gx.is_directed())
+        self.assertTrue(Gx.is_connected())
+        self.assertEqual(np.sum(np.diag(Ax)), 0)
+        self.assertFalse(Gy.is_directed())
+        self.assertTrue(Gy.is_connected())
+        self.assertEqual(np.sum(np.diag(Ay)), 0)
+        self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 <= up_err_margin)
+        self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 >= bottom_err_margin)
 
 
-class DiffusedSparse2GSTest(unittest.TestCase):
+class LinearDS2GS2GSTest(unittest.TestCase):
     def setUp(self):
         np.random.seed(SEED)
         self.G_params = {}
@@ -35,8 +72,8 @@ class DiffusedSparse2GSTest(unittest.TestCase):
         n_delts = 6
         self.G_params['type'] = ds.ER
         Gx, Gy = ds.perturbated_graphs(self.G_params, self.eps1, self.eps2, seed=SEED)
-        data = ds.DiffusedSparse2GS(Gx, Gy, n_samps, L, n_delts)
-        self.assertFalse(np.array_equal(data.Hx,data.Hy))
+        data = ds.LinearDS2GS(Gx, Gy, n_samps, L, n_delts)
+        self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
         for i in range(n_samps[1]):
@@ -49,7 +86,7 @@ class DiffusedSparse2GSTest(unittest.TestCase):
         n_samps = [50, 20, 20]
         L = 6
         n_delts = self.G_params['k']
-        data = ds.DiffusedSparse2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         self.assertFalse(np.array_equal(data.Hx,data.Hy))
         for i in range(n_samps[0]):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
@@ -59,7 +96,7 @@ class DiffusedSparse2GSTest(unittest.TestCase):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
 
         n_delts = self.G_params['k']*2+3
-        data = ds.DiffusedSparse2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         for i in range(n_samps[0]):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
         for i in range(n_samps[1]):
@@ -71,7 +108,7 @@ class DiffusedSparse2GSTest(unittest.TestCase):
         n_samps = [50, 20, 20]
         L = 6
         n_delts = 4
-        data = ds.DiffusedSparse2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         data.to_unit_norm()
 
         for i in range(n_samps[0]):
@@ -294,8 +331,9 @@ class GraphDownsamplingTest(unittest.TestCase):
         self.k = nodes_enc[-1]
         self.cluster = gc.MultiResGraphClustering(G, nodes_enc, k=4, up_method=ups)
         self.model = Sequential()
-        for D in self.cluster.Ds:
-            self.add_layer(GraphDownsampling(D))
+        for i, D in enumerate(self.cluster.Ds):
+            self.add_layer(GraphDownsampling(D, self.cluster.As[i+1], gamma=1))
+
 
     def add_layer(self, module):
         self.model.add_module(str(len(self.model) + 1), module)
@@ -340,6 +378,21 @@ class GraphDownsamplingTest(unittest.TestCase):
             input[i,:,:] = Tensor(input_aux)
         result = self.model(input)
         self.assertTrue(result.equal(expected_result))
+
+    def test_downsampling_more_channels(self):
+        n_chans = 10
+        n_samples = 5
+        result_aux = expected_result = np.unique([self.cluster.labels[-1]],axis=1).astype(np.float32)
+        result_aux = np.repeat(expected_result, n_chans, axis=0)
+        expected_result = zeros([n_samples, n_chans, self.k])
+        input_aux = np.repeat([self.cluster.labels[-1]], n_chans, axis=0).astype(np.float32)
+        input = zeros([n_samples, n_chans, self.N])
+        for i in range(n_samples):
+            expected_result[i,:,:] = Tensor(result_aux)
+            input[i,:,:] = Tensor(input_aux)
+        result = self.model(input)
+        self.assertTrue(result.equal(expected_result))
+
 
 class GraphUpsamplingTest(unittest.TestCase):
     def setUp(self):
@@ -408,6 +461,22 @@ class GraphUpsamplingTest(unittest.TestCase):
             input[i,:,:] = Tensor(input_aux)
         result = self.model(input)
         self.assertTrue(result.equal(expected_result))
+
+    def test_upsampling_more_channels(self):
+        n_chans = 10
+        n_samples = 5
+        result_aux = self.cluster.labels[0].astype(np.float32)
+        result_aux = np.repeat([result_aux], n_chans, axis=0)
+        expected_result = zeros([n_samples, n_chans, self.N])
+        input_aux = np.unique(self.cluster.labels[0]).astype(np.float32)
+        input_aux = np.repeat([input_aux], n_chans, axis=0)
+        input = zeros([n_samples, n_chans, self.k])
+        for i in range(n_samples):
+            expected_result[i,:,:] = Tensor(result_aux)
+            input[i,:,:] = Tensor(input_aux)
+        result = self.model(input)
+        self.assertTrue(result.equal(expected_result))
+
 
 if __name__ == "__main__":
     unittest.main()
