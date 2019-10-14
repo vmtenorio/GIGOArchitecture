@@ -5,23 +5,29 @@ import numpy as np
 import sys
 
 
+# Optimizer constans
+SGD = 1
+ADAM = 0
+
+
 class Model:
     # TODO: add support for more optimizers
     def __init__(self, arch,
                  learning_rate=0.1, decay_rate=0.99, loss_func=nn.MSELoss(),
                  epochs=50, batch_size=100, eval_freq=5, verbose=False,
-                 max_non_dec=10):
+                 max_non_dec=10, opt=ADAM):
+        assert opt in [SGD, ADAM], 'Unknown optimizer type'
         self.arch = arch
-        # self.lr = learning_rate
-        # self.decay = decay_rate
         self.loss = loss_func
         self.epochs = epochs
         self.batch_size = batch_size
         self.eval_freq = eval_freq
         self.verbose = verbose
         self.max_non_dec = max_non_dec
-        self.optim = optim.Adam(self.arch.parameters(), lr=learning_rate)
-        # self.optim = optim.SGD(self.arch.parameters(), lr=learning_rate)
+        if opt == ADAM:
+            self.optim = optim.Adam(self.arch.parameters(), lr=learning_rate)
+        else:
+            self.optim = optim.SGD(self.arch.parameters(), lr=learning_rate)
         self.scheduler = optim.lr_scheduler.ExponentialLR(self.optim,
                                                           decay_rate)
 
@@ -35,6 +41,8 @@ class Model:
         best_err = 1000000
         best_net = None
         cont = 0
+        train_err = np.zeros(self.epochs)
+        val_err = np.zeros(self.epochs)
         for i in range(1, self.epochs+1):
             t_start = time.time()
             for j in range(1, n_steps+1):
@@ -51,12 +59,14 @@ class Model:
                 self.optim.step()
 
             self.scheduler.step()
+            train_err[i-1] = training_loss.detach().numpy()
             t = time.time()-t_start
 
             # Predict eval error
             with no_grad():
                 predicted_Y_eval = self.arch(val_X)
                 eval_loss = self.loss(predicted_Y_eval, val_Y)
+                val_err[i-1] = eval_loss.detach().numpy()
             if eval_loss.data*1.005 < best_err:
                 best_err = eval_loss.data
                 best_net = copy.deepcopy(self.arch)
@@ -70,6 +80,7 @@ class Model:
                 print('Epoch {}/{}({:.4f}s)\tEval Loss: {:.8f}\tTrain: {:.8f}'
                       .format(i, self.epochs, t, eval_loss, training_loss))
         self.arch = best_net
+        return i-cont, train_err, val_err
 
     def test(self, test_X, test_Y):
         # Ignoring dim[1] with only one channel
@@ -102,6 +113,7 @@ class LinearModel:
         X = train_X.view([train_X.shape[0], train_X.shape[2]]).detach().numpy()
         Y = train_Y.view([train_Y.shape[0], train_Y.shape[2]]).detach().numpy()
         self.Beta = np.linalg.pinv(X.T.dot(X)).dot(X.T).dot(Y)
+        return 0, 0, 0
 
     def test(self, test_X, test_Y):
         shape = [test_X.shape[0], test_X.shape[2]]
