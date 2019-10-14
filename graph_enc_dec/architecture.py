@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import time
 
-from graph_clustering import NONE, REG, NO_A, BIN, WEI
+from graph_enc_dec.graph_clustering import NONE, REG, NO_A, BIN, WEI
 
 
 # NOTE: maybe is good to pass method as argument...
@@ -16,13 +16,14 @@ class GraphEncoderDecoder(nn.Module):
                  # Decoder args
                  features_dec, nodes_dec, Us,
                  # Only conv layers
-                 features_conv_dec=[], 
+                 features_conv_dec=[],
                  # Optional args
-                 As_enc=None, As_dec=None, gamma=0.5, batch_norm=True,
+                 As_enc=None, As_dec=None, ups=WEI, downs=WEI,
+                 gamma=0.5, batch_norm=True,
                  # Activation functions
                  act_fn=nn.Tanh(), last_act_fn=nn.Tanh()):
         if features_enc[-1] != features_dec[0] or nodes_enc[-1] != nodes_dec[0]:
-            raise RuntimeError('Different definition of dimension for the latent space')
+            raise RuntimeError('Different dimensions for the latent space')
 
         if len(features_conv_dec) != 0 and features_conv_dec[0] != features_dec[-1]:
             raise RuntimeError('Features of last decoder layer and first conv layer do not match')
@@ -41,6 +42,8 @@ class GraphEncoderDecoder(nn.Module):
         self.fts_cnv_dec = features_conv_dec
         self.As_enc = As_enc
         self.As_dec = As_dec
+        self.ups = ups
+        self.downs = downs
         self.kernel_size = 1
         self.gamma = gamma
         self.batch_norm = batch_norm
@@ -52,19 +55,21 @@ class GraphEncoderDecoder(nn.Module):
         self.model.add_module(str(len(self.model) + 1), module)
 
     # TODO: create a method for testing the correct creation of the arch
-    # NOTE: possibility for a section of only convolutions at the beggining 
+    # NOTE: possibility for a section of only convolutions at the beggining
     def build_network(self):
         # Encoder Section
         downs_skip = 0
         for l in range(len(self.fts_enc)-1):
             self.add_layer(nn.Conv1d(self.fts_enc[l], self.fts_enc[l+1],
-                        self.kernel_size, bias=False))
+                           self.kernel_size, bias=False))
 
             if self.nodes_enc[l] > self.nodes_enc[l+1]:
-                # TODO: Need to notify if reg_ups will be used!
-                # TODO: Create reg_downs --> are this two really needed in this setting??
-                # A = None if self.downs == 'no_A' or self.downs == 'original' else self.hier_A[l+1]
-                self.add_layer(GraphDownsampling(self.Ds[l-downs_skip]))
+                if self.As_enc is not None:
+                    A = self.As_enc[l+1-downs_skip]
+                else:
+                    A = None
+                self.add_layer(GraphDownsampling(self.Ds[l-downs_skip],
+                                                 A, self.gamma, self.ups))
             else:
                 downs_skip += 1
             if self.act_fn is not None:
@@ -75,17 +80,16 @@ class GraphEncoderDecoder(nn.Module):
         # Decoder Section
         ups_skip = 0
         for l in range(len(self.fts_dec)-1):
-            self.add_layer(nn.Conv1d(self.fts_dec[l], self.fts_dec[l+1], 
-                        self.kernel_size, bias=False))
+            self.add_layer(nn.Conv1d(self.fts_dec[l], self.fts_dec[l+1],
+                           self.kernel_size, bias=False))
 
             if self.nodes_dec[l] < self.nodes_dec[l+1]:
-                # TODO: Need to notify if reg_ups or no_A will be used! 
-                # Add layer graph upsampling
-                # ups?
-                # Careful, A may be None
-                # self.add_layer(GraphUpsampling(self.Us[l-ups_skip], A, self.ups, self.gamma))
-                self.add_layer(GraphUpsampling(self.Us[l-ups_skip], self.As_dec[l+1-ups_skip],
-                                               self.gamma))
+                if self.As_dec is not None:
+                    A = self.As_dec[l+1-ups_skip]
+                else:
+                    A = None
+                self.add_layer(GraphUpsampling(self.Us[l-ups_skip],
+                                               A, self.gamma, self.ups))
             else:
                 ups_skip += 1
 
@@ -119,62 +123,110 @@ class GraphEncoderDecoder(nn.Module):
         return self.model(x)
 
 
+# TODO: common class GraphSampling(?)
 class GraphUpsampling(nn.Module):
     """
-    Use information from the agglomerative hierarchical clustering for doing the upsampling by
-    creating the upsampling matrix U
+    Use information from the agglomerative hierarchical clustering for
+    doing the upsampling by creating the upsampling matrix U
     """
-    def __init__(self, U, A, gamma, method=WEI):  #WEI
+    def __init__(self, U, A, gamma=0.5, method=WEI):  # WEI
+        # NOTE: gamma = 1 is equivalent to no_A
         super(GraphUpsampling, self).__init__()
-        # NOTE: Normalize A so its rows add up to 1 --> maybe should be done when obtainning A
         if A is not None:
-            D_inv = np.linalg.inv(np.diag(np.sum(A,0)))
-            self.A = D_inv.dot(A)
+            assert np.allclose(A, A.T), 'A should be symmetric'
+            self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
+            if method in [BIN, WEI]:
+                self.A = gamma*np.eye(A.shape[0]) + (1-gamma)*self.A
+            self.A = Tensor(self.A)
+
         self.parent_size = U.shape[1]
         self.child_size = U.shape[0]
         self.method = method
-        self.gamma = gamma
-        self.U = Tensor(U)
+        self.U_T = Tensor(U).t()
 
-    def forward(self, input):
-        # TODO: check if making ops with np instead of torch increase speed
-        n_samples = input.shape[0]
-        n_channels = input.shape[1]
-        output = torch.zeros([n_samples, n_channels, self.U.shape[0]])
-        for i in range(n_samples):
-            in_matrix = torch.t(input[i,:,:])
-            parents_val = self.U.mm(in_matrix)
-            # NOTE: gamma = 1 is equivalent to no_A
-            # NOTE: gamma = 0 is equivalent to the prev setup
-            if self.method == REG:
-                sf = self.child_size/self.parent_size
-                return nn.functional.interpolate(input, scale_factor=sf,
-                                        mode='linear', align_corners=True)
-            elif self.method == NO_A:
-                output[i,:,:] = torch.t(parents_val)
+    def iterate_over_channs(self, input, output, n_channels):
+        for i in range(n_channels):
+            if self.method == NO_A:
+                output[:, i, :] = input[:, i, :].mm(self.U_T)
             elif self.method in [BIN, WEI]:
-                neigbours_val = Tensor(self.A).mm(parents_val)
-                output[i,:,:] = torch.t(self.gamma*parents_val + (1-self.gamma)*neigbours_val)
+                output[:, i, :] = input[:, i, :].mm(self.U_T).mm(self.A)
             else:
                 raise RuntimeError('Unknown sampling method')
-
         return output
 
-
-# TODO: add function for printing its info correctly
-class GraphDownsampling(nn.Module):
-    def __init__(self, D):
-        # Maybe different types of Ds?
-        super(GraphDownsampling, self).__init__()
-        # Normalize D so all its rows add to 1
-        # Maybe this should depend on the different As
-        Deg_inv = np.linalg.inv(np.diag(np.sum(D,1)))  
-        self.D = Tensor(Deg_inv.dot(D))
+    def iterate_over_samples(self, input, output, n_samples):
+        for i in range(n_samples):
+            if self.method == NO_A:
+                output[i, :, :] = input[i, :, :].mm(self.U_T)
+            elif self.method in [BIN, WEI]:
+                output[i, :, :] = input[i, :, :].mm(self.U_T).mm(self.A)
+            else:
+                raise RuntimeError('Unknown sampling method')
+        return output
 
     def forward(self, input):
+        if self.method == REG:
+            sf = self.child_size/self.parent_size
+            return nn.functional.interpolate(input, scale_factor=sf,
+                                             mode='linear',
+                                             align_corners=True)
         n_samples = input.shape[0]
-        output = torch.zeros([n_samples, input.shape[1], self.D.shape[0]])
-        for i in range(n_samples):
-            in_matrix = torch.t(input[i,:,:])
-            output[i,:,:] = torch.t(self.D.mm(in_matrix))
+        n_channels = input.shape[1]
+        output = torch.zeros([n_samples, n_channels, self.child_size])
+        if n_channels < n_samples:
+            return self.iterate_over_channs(input, output, n_channels)
+        else:
+            return self.iterate_over_samples(input, output, n_samples)
+
+
+class GraphDownsampling(nn.Module):
+    def __init__(self, D, A, gamma=0.5, method=WEI):
+        super(GraphDownsampling, self).__init__()
+        if A is not None:
+            assert np.allclose(A, A.T), 'A should be symmetric'
+            self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
+            if method in [BIN, WEI]:
+                self.A = gamma*np.eye(A.shape[0]) + (1-gamma)*self.A
+            self.A = Tensor(self.A)
+
+        self.method = method
+        self.parent_size = D.shape[1]
+        self.child_size = D.shape[0]
+        # NOTE: only creation of D changes!
+        Deg_inv = np.linalg.inv(np.diag(np.sum(D, 1)))
+        self.D_T = Tensor(Deg_inv.dot(D)).t()
+
+    def iterate_over_channs(self, input, output, n_channels):
+        for i in range(n_channels):
+            if self.method == NO_A:
+                output[:, i, :] = input[:, i, :].mm(self.D_T)
+            elif self.method in [BIN, WEI]:
+                output[:, i, :] = input[:, i, :].mm(self.D_T).mm(self.A)
+            else:
+                raise RuntimeError('Unknown sampling method')
         return output
+
+    def iterate_over_samples(self, input, output, n_samples):
+        for i in range(n_samples):
+            if self.method == NO_A:
+                output[i, :, :] = input[i, :, :].mm(self.D_T)
+            elif self.method in [BIN, WEI]:
+                output[i, :, :] = input[i, :, :].mm(self.D_T).mm(self.A)
+            else:
+                raise RuntimeError('Unknown sampling method')
+        return output
+
+    # NOTE: forward an iterate functions has the exact same code! 
+    def forward(self, input):
+        if self.method == REG:
+            sf = self.child_size/self.parent_size
+            return nn.functional.interpolate(input, scale_factor=sf,
+                                             mode='linear',
+                                             align_corners=True)
+        n_samples = input.shape[0]
+        n_channs = input.shape[1]
+        output = torch.zeros([n_samples, n_channs, self.child_size])
+        if n_channs < n_samples:
+            return self.iterate_over_channs(input, output, n_channs)
+        else:
+            return self.iterate_over_samples(input, output, n_samples)
