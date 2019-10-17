@@ -18,18 +18,26 @@ N_CPUS = cpu_count()
 VERBOSE = True
 SAVE = True
 SAVE_PATH = './results/perturbation'
-EVAL_F = 5
+EVAL_F = 1
 
 
-EXPS = [
-        {'type': 'Enc_Dec',
+EXPS = [{'type': 'Enc_Dec',
          'f_enc': [1, 5, 5, 10, 10, 15, 15],
          'n_enc': [256, 128, 64, 32, 16, 8, 4],
          'f_dec': [15, 15, 10, 10, 5, 5, 5],
          'n_dec': [4, 8, 16, 32, 64, 124, 256],
          'f_conv': [5, 5, 1],
          'ups': gc.WEI,
-         'downs': gc.WEI}]
+         'downs': gc.WEI},
+        {'type': 'AutoConv',
+         'f_enc': [1, 5, 5, 8],
+         'kernel_enc': 10,
+         'f_dec': [8, 5, 5, 1],
+         'kernel_dec': 10},
+        {'type': 'AutoFC',
+         'n_enc': [256, 3],
+         'n_dec': [3, 256],
+         'bias': True}]
 
 N_EXPS = len(EXPS)
 
@@ -46,62 +54,90 @@ def train_models(Gs, signals, lrn):
     print('Distance signals:', sign_dist)
     data.to_tensor()
 
+    epochs = np.zeros(N_EXPS)
     med_err = np.zeros(N_EXPS)
     mse = np.zeros(N_EXPS)
     models_state = []
     for i, exp in enumerate(EXPS):
         # Create model
-        clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
-                                             k=exp['n_enc'][-1],
-                                             up_method=exp['downs'])
-        clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
-                                             k=exp['n_enc'][-1],
-                                             up_method=exp['ups'])
-        net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
-                                  exp['f_dec'], clust_y.sizes, clust_y.Us,
-                                  exp['f_conv'], As_dec=clust_y.As,
-                                  As_enc=clust_x.As, act_fn=lrn['af'],
-                                  last_act_fn=lrn['laf'], ups=exp['ups'],
-                                  downs=exp['downs'])
-        model = Model(net, learning_rate=lrn['lr'], decay_rate=lrn['dr'],
-                      batch_size=lrn['batch'], epochs=lrn['epochs'],
-                      eval_freq=EVAL_F, max_non_dec=lrn['non_dec'],
-                      verbose=VERBOSE)
+        if exp['type'] == 'Linear':
+            model = LinearModel(exp['N'])
+        elif exp['type'] == 'Enc_Dec':
+            clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
+                                                 k=exp['n_enc'][-1],
+                                                 up_method=exp['downs'])
+            clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
+                                                 k=exp['n_enc'][-1],
+                                                 up_method=exp['ups'])
+            net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
+                                      exp['f_dec'], clust_y.sizes, clust_y.Us,
+                                      exp['f_conv'], As_dec=clust_y.As,
+                                      As_enc=clust_x.As, act_fn=lrn['af'],
+                                      last_act_fn=lrn['laf'], ups=exp['ups'],
+                                      downs=exp['downs'])
+        elif exp['type'] == 'AutoConv':
+            net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
+                                  exp['f_dec'], exp['kernel_dec'])
+        elif exp['type'] == 'AutoFC':
+            net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
+        else:
+            raise RuntimeError('Unknown experiment type')
+        if exp['type'] != 'Linear':
+            model = Model(net, learning_rate=lrn['lr'], decay_rate=lrn['dr'],
+                          batch_size=lrn['batch'], epochs=lrn['epochs'],
+                          eval_freq=EVAL_F, max_non_dec=lrn['non_dec'],
+                          verbose=VERBOSE)
         # Fit models
-        epochs, _, _ = model.fit(data.train_X, data.train_Y, data.val_X,
-                                 data.val_Y)
+        epochs[i], _, _ = model.fit(data.train_X, data.train_Y, data.val_X,
+                                    data.val_Y)
         _, med_err[i], mse[i] = model.test(data.test_X, data.test_Y)
-        print('Original Graph: {}-{} ({}): epochs {} - mse {} - MedianErr: {}'
-              .format(i, exp['type'], model.count_params(), epochs,
-                      mse[i], med_err[i]))
-
         models_state.append(model.state_dict())
+    
+
+        
 
         # DEBUG!
-        model.print_model_state_sizes()
-        clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
-                                             k=exp['n_enc'][-1],
-                                             up_method=exp['downs'])
-        clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
-                                             k=exp['n_enc'][-1],
-                                             up_method=exp['ups'])
-        net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
-                                  exp['f_dec'], clust_y.sizes, clust_y.Us,
-                                  exp['f_conv'], As_dec=clust_y.As,
-                                  As_enc=clust_x.As, act_fn=lrn['af'],
-                                  last_act_fn=lrn['laf'], ups=exp['ups'],
-                                  downs=exp['downs'])
-        model = Model(net)
+        if exp['type'] == 'Linear':
+            model = LinearModel(exp['N'])
+        elif exp['type'] == 'Enc_Dec':
+            clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
+                                                 k=exp['n_enc'][-1],
+                                                 up_method=exp['downs'])
+            clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
+                                                 k=exp['n_enc'][-1],
+                                                 up_method=exp['ups'])
+            net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
+                                      exp['f_dec'], clust_y.sizes, clust_y.Us,
+                                      exp['f_conv'], As_dec=clust_y.As,
+                                      As_enc=clust_x.As, act_fn=lrn['af'],
+                                      last_act_fn=lrn['laf'], ups=exp['ups'],
+                                      downs=exp['downs'])
+        elif exp['type'] == 'AutoConv':
+            net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
+                                  exp['f_dec'], exp['kernel_dec'])
+        elif exp['type'] == 'AutoFC':
+            net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
+        else:
+            raise RuntimeError('Unknown experiment type')
+        if exp['type'] != 'Linear':
+            model = Model(net)
         model.load_state_dict(models_state[i])
         _, med_error, mse_error = model.test(data.test_X, data.test_Y)
         print('DEBUG: Original Graph {}-{} ({}): mse {} - MedianErr: {}'
               .format(i, exp['type'], model.count_params(),
                       mse_error, med_error))
 
+    for i, exp in enumerate(EXPS):
+        print('Original Graph: {}-{} ({}): epochs {} - mse {} - MedianErr: {}'
+              .format(i, exp['type'], model.count_params(), epochs[i],
+                      mse[i], med_err[i]))
+    print()
     return models_state
 
 
 def test_other_graphs(Gs, signals, lrn, models_state):
+    med_err = np.zeros((Gs['n_graphs'], N_EXPS))
+    mse = np.zeros((Gs['n_graphs'], N_EXPS))
     for i in Gs['n_graphs']:
         Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['create'], Gs['destroy'],
                                        pct=Gs['pct'], seed=SEED)
@@ -116,23 +152,35 @@ def test_other_graphs(Gs, signals, lrn, models_state):
 
         # Create models
         for j, exp in enumerate(EXPS):
-            clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
-                                                 k=exp['n_enc'][-1],
-                                                 up_method=exp['downs'])
-            clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
-                                                 k=exp['n_enc'][-1],
-                                                 up_method=exp['ups'])
-            net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
-                                      exp['f_dec'], clust_y.sizes, clust_y.Us,
-                                      exp['f_conv'], As_dec=clust_y.As,
-                                      As_enc=clust_x.As, act_fn=lrn['af'],
-                                      last_act_fn=lrn['laf'], ups=exp['ups'],
-                                      downs=exp['downs'])
-            model = Model(net)
+            if exp['type'] == 'Linear':
+                model = LinearModel(exp['N'])
+            elif exp['type'] == 'Enc_Dec':
+                clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
+                                                    k=exp['n_enc'][-1],
+                                                    up_method=exp['downs'])
+                clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
+                                                    k=exp['n_enc'][-1],
+                                                    up_method=exp['ups'])
+                net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
+                                        exp['f_dec'], clust_y.sizes, clust_y.Us,
+                                        exp['f_conv'], As_dec=clust_y.As,
+                                        As_enc=clust_x.As, act_fn=lrn['af'],
+                                        last_act_fn=lrn['laf'], ups=exp['ups'],
+                                        downs=exp['downs'])
+            elif exp['type'] == 'AutoConv':
+                net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
+                                    exp['f_dec'], exp['kernel_dec'])
+            elif exp['type'] == 'AutoFC':
+                net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
+            else:
+                raise RuntimeError('Unknown experiment type')
+            if exp['type'] != 'Linear':
+                model = Model(net)
             model.load_state_dict(models_state[j])
-            _, _, _ = model.test(data.test_X, data.test_Y)
-        # Load weights
-    return
+            _, med_err[i, j], mse[i, j] = model.test(data.test_X, data.test_Y)
+
+            # PRINT
+    return med_err, mse
 
 
 if __name__ == '__main__':
@@ -152,8 +200,8 @@ if __name__ == '__main__':
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
     Gs['pct'] = True
-    Gs['create'] = 5
-    Gs['destoy'] = 5
+    Gs['create'] = 10
+    Gs['destroy'] = 10
 
     # Signals
     signals = {}
