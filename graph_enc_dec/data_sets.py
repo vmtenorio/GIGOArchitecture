@@ -58,33 +58,49 @@ def create_graph(ps, seed=None):
             z = None
         return StochasticBlockModel(N=ps['N'], k=ps['k'], p=ps['p'], z=z,
                                     q=ps['q'], connected=True, seed=seed,
-                                    max_iter=20)
+                                    max_iter=25)
     elif ps['type'] == ER:
         return ErdosRenyi(N=ps['N'], p=ps['p'], connected=True, seed=seed,
-                          max_iter=20)
+                          max_iter=25)
     else:
         raise RuntimeError('Unknown graph type')
 
 
-def perturbate_percentage(Gx, creat, destr):
+def perturbate_probability(Gx, eps_c, eps_d):
     A_x = Gx.W.todense()
-    A_y_triu = np.triu(A_x, 1)
-    A_y_triu[np.tril_indices(Gx.N)] = -1
+    no_link_ind = np.where(A_x == 0)
+    link_ind = np.where(A_x == 1)
+
+    mask_c = np.random.choice([0, 1], p=[1-eps_c, eps_c],
+                              size=no_link_ind[0].shape)
+    mask_d = np.random.choice([0, 1], p=[1-eps_d, eps_d],
+                              size=link_ind[0].shape)
+
+    A_x[link_ind] = np.logical_xor(A_x[link_ind], mask_d).astype(int)
+    A_x[no_link_ind] = np.logical_xor(A_x[no_link_ind], mask_c).astype(int)
+    A_x = np.triu(A_x, 1)
+    A_y = A_x + A_x.T
+    return A_y
+
+
+def perturbate_percentage(Gx, creat, destr):
+    A_x_triu = Gx.W.todense()
+    A_x_triu[np.tril_indices(Gx.N)] = -1
 
     # Create links
-    no_link_i = np.where(A_y_triu == 0)
+    no_link_i = np.where(A_x_triu == 0)
     links_c = np.random.choice(no_link_i[0].size, int(Gx.Ne * creat/100))
     idx_c = [no_link_i[0][links_c], no_link_i[1][links_c]]
 
     # Destroy links
-    link_i = np.where(A_y_triu == 1)
+    link_i = np.where(A_x_triu == 1)
     links_d = np.random.choice(link_i[0].size, int(Gx.Ne * destr/100))
     idx_d = [link_i[0][links_d], link_i[1][links_d]]
 
-    A_y_triu[np.tril_indices(Gx.N)] = 0
-    A_y_triu[idx_c] = 1
-    A_y_triu[idx_d] = 0
-    A_y = A_y_triu + A_y_triu.T
+    A_x_triu[np.tril_indices(Gx.N)] = 0
+    A_x_triu[idx_c] = 1
+    A_x_triu[idx_d] = 0
+    A_y = A_x_triu + A_x_triu.T
     return A_y
 
 
@@ -104,19 +120,7 @@ def perturbated_graphs(g_params, eps_c=5, eps_d=5, pct=True, seed=None):
     if pct:
         A_y = perturbate_percentage(Gx, eps_c, eps_d)
     else:
-        # TODO: review code
-        A_x = Gx.A.todense()
-        link_ind = np.where(A_x == 1)
-        no_link_ind = np.where(A_x != 1)  # Check! May take values from diag 
-        mask_c = np.random.choice([0, 1], p=[1-eps_c, eps_c],
-                                  size=no_link_ind[0].shape)
-        mask_d = np.random.choice([0, 1], p=[1-eps_d, eps_d],
-                                  size=link_ind[0].shape)
-        A_y = A_x
-        A_y[link_ind] = np.logical_xor(A_y[link_ind], mask_d).astype(int)
-        A_y[no_link_ind] = np.logical_xor(A_y[no_link_ind], mask_c).astype(int)
-        A_y = np.triu(A_y, 1)
-        A_y = A_y + A_y.T
+        A_y = perturbate_probability(Gx, eps_c, eps_d)
 
     Gy = Graph(A_y)
     assert Gy.is_connected(), 'Could not create connected graph Gy'

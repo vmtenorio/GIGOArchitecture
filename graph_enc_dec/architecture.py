@@ -64,12 +64,12 @@ class GraphEncoderDecoder(nn.Module):
                            self.kernel_size, bias=False))
 
             if self.nodes_enc[l] > self.nodes_enc[l+1]:
-                if self.As_enc is not None:
+                if self.As_enc:
                     A = self.As_enc[l+1-downs_skip]
                 else:
                     A = None
                 self.add_layer(GraphDownsampling(self.Ds[l-downs_skip],
-                                                 A, self.gamma, self.ups))
+                                                 A, self.gamma, self.downs))
             else:
                 downs_skip += 1
             if self.act_fn is not None:
@@ -84,7 +84,7 @@ class GraphEncoderDecoder(nn.Module):
                            self.kernel_size, bias=False))
 
             if self.nodes_dec[l] < self.nodes_dec[l+1]:
-                if self.As_dec is not None:
+                if self.As_dec:
                     A = self.As_dec[l+1-ups_skip]
                 else:
                     A = None

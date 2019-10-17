@@ -82,6 +82,17 @@ class Model:
         self.arch = best_net
         return i-cont, train_err, val_err
 
+    def state_dict(self):
+        return self.arch.state_dict()
+
+    def load_state_dict(self, state_dict):
+        self.arch.load_state_dict(state_dict)
+        self.arch.eval()  # Necessary?
+
+    def print_model_state_sizes(self):
+        for params in self.arch.state_dict():
+            print(params, "\t", self.arch.state_dict()[params].size())
+
     def test(self, test_X, test_Y):
         # Ignoring dim[1] with only one channel
         shape = [test_X.shape[0], test_X.shape[2]]
@@ -114,6 +125,15 @@ class LinearModel:
         Y = train_Y.view([train_Y.shape[0], train_Y.shape[2]]).detach().numpy()
         self.Beta = np.linalg.pinv(X.T.dot(X)).dot(X.T).dot(Y)
         return 0, 0, 0
+
+    def state_dict(self):
+        return self.Beta
+
+    def load_state_dict(self, state_dict):
+        self.Beta = state_dict
+
+    def print_model_state_sizes(self):
+        print('Beta\t', self.Beta.size())
 
     def test(self, test_X, test_Y):
         shape = [test_X.shape[0], test_X.shape[2]]
