@@ -43,7 +43,8 @@ eps2 = 0.3
 Ki = 2
 Ko = 2
 Fi = [1,32,N]
-Fo = [N,32,1]
+Fo = [N,32,32]
+C = [Fo[-1],32,1]
 
 loss_func = nn.MSELoss()
 
@@ -82,7 +83,7 @@ for ng in range(N_graphs):
     Gx.compute_laplacian('normalized')
     Gy.compute_laplacian('normalized')
 
-    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, nonlin)
+    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, C, nonlin)
 
     model_param['arch'] = archit
 

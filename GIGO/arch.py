@@ -30,6 +30,8 @@ class BasicArch(nn.Module):
         self.nonlin = nonlin
         self.l_param = []
 
+        n_params = 0
+
         # Define the layer
         # Grahp Filter Layers
         gfl = []
@@ -40,6 +42,7 @@ class BasicArch(nn.Module):
             gfl.append(self.nonlin())
             self.l_param.append('weights_gf_' + str(l))
             self.l_param.append('bias_gf_' + str(l))
+            n_params += self.F[l] * self.F[l+1] * self.K + self.N * self.F[l+1]
 
         self.GFL = nn.Sequential(*gfl)
 
@@ -58,8 +61,17 @@ class BasicArch(nn.Module):
             fcl.append(nn.Linear(self.M[m-1], self.M[m]))
             self.l_param.append('weights_fc_' + str(m))
             self.l_param.append('bias_fc_' + str(m))
+            n_params += self.M[m-1] * self.M[m] + self.M[m]
 
         self.FCL = nn.Sequential(*fcl)
+
+        if ARCH_INFO:
+            print("Architecture:")
+            print("Graph N_nodes: {}".format(self.N))
+            print("F: {}, K: {}, M: {}".format(self.F, self.K, self.M))
+            print("Non lin: " + str(self.nonlin))
+            print("N params: " + str(n_params))
+
 
 
     def forward(self, x):
@@ -101,6 +113,7 @@ class GIGOArch(nn.Module):
                 Fo,         # Features in each graph filter layer of the output graph (list)
                 Ki,         # Filter taps in each graph filter layer for the input graph
                 Ko,         # Filter taps in each graph filter layer for the output graph
+                C,          # Convolutional layers
                 #M,          # Neurons in each fully connected layer (list)
                 nonlin):    # Non linearity function)
         super(GIGOArch, self).__init__()
@@ -122,6 +135,7 @@ class GIGOArch(nn.Module):
         self.Fo = Fo
         self.Ki = Ki
         self.Ko = Ko
+        self.C = C
         #self.M = M
         self.nonlin = nonlin
         self.l_param = []
@@ -129,6 +143,7 @@ class GIGOArch(nn.Module):
         # Some checks to verify data integrity
         assert self.Fi[-1] == self.No
         assert self.Fo[0] == self.Ni
+        assert self.Fo[-1] == self.C[0]
 
         # Define the layers
         # Grahp Filter Layers for the input graph
@@ -158,6 +173,13 @@ class GIGOArch(nn.Module):
             n_params += self.Fo[l] * self.Fo[l+1] * self.Ko + self.Fo[l+1] * self.No
 
         self.GFLo = nn.Sequential(*gflo)
+
+        self.conv1d = []
+        for c in range(len(C) - 1):
+            self.conv1d.append(nn.Conv1d(self.C[c], self.C[c+1], kernel_size=1, bias=False))
+            self.l_param.append('weights_C_' + str(c))
+
+        self.conv1d_l = nn.Sequential(*self.conv1d)
 
         if ARCH_INFO:
             print("Architecture:")
@@ -200,5 +222,7 @@ class GIGOArch(nn.Module):
         y = self.GFLo(y)
         #print('End')
         #print(y)
+        y = y.permute(0,2,1)
+        y = self.conv1d_l(y)
 
-        return torch.squeeze(y, dim=2)
+        return torch.squeeze(y, dim=1)
