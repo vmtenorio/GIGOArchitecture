@@ -90,12 +90,12 @@ def perturbate_percentage(Gx, creat, destr):
     # Create links
     no_link_i = np.where(A_x_triu == 0)
     links_c = np.random.choice(no_link_i[0].size, int(Gx.Ne * creat/100))
-    idx_c = [no_link_i[0][links_c], no_link_i[1][links_c]]
+    idx_c = (no_link_i[0][links_c], no_link_i[1][links_c])
 
     # Destroy links
     link_i = np.where(A_x_triu == 1)
     links_d = np.random.choice(link_i[0].size, int(Gx.Ne * destr/100))
-    idx_d = [link_i[0][links_d], link_i[1][links_d]]
+    idx_d = (link_i[0][links_d], link_i[1][links_d])
 
     A_x_triu[np.tril_indices(Gx.N)] = 0
     A_x_triu[idx_c] = 1
