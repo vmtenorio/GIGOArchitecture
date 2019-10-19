@@ -5,7 +5,6 @@ import time
 from tensorboardX import SummaryWriter
 import copy
 
-VERB = True
 DEBUG = False
 DEEP_DEBUG = False
 
@@ -14,7 +13,7 @@ class Model:
                 arch,
                 optimizer, learning_rate, beta1, beta2, decay_rate, loss_func,
                 num_epochs, batch_size, eval_freq, max_non_dec,
-                tb_log):
+                tb_log, verb=True):
         # Define architecture
         self.arch = arch
 
@@ -31,6 +30,7 @@ class Model:
         self.eval_freq = eval_freq
         self.max_non_dec = max_non_dec
         self.tb_log = tb_log
+        self.verb = verb
 
         if DEEP_DEBUG:
             for p in self.arch.parameters():
@@ -73,12 +73,13 @@ class Model:
                     cont = 0
                 else:
                     if cont >= self.max_non_dec:
-                        if VERB:
+                        if self.verb:
                             print("Early Stopping at {} epochs.".format(str(i)))
+                        self.epochs_conv = i
                         break
                     cont += 1
 
-            if i % self.eval_freq == 0 and VERB:
+            if i % self.eval_freq == 0 and self.verb:
                 loss, acc, mean_err = self.predict(val_data, val_labels, i)
                 print('Epoch {}/{}'.format(i, self.num_epochs), end=" - ")
                 if self.class_type:
@@ -94,11 +95,12 @@ class Model:
                     self.writer.add_scalar('perf/accuracy', acc, i)
                     self.writer.add_scalar('perf/loss', loss.item(), i)
 
+        self.t_conv = time.time() - t_init      # Time until convergence
         # Taking the best architecture from early stopping
         if self.max_non_dec != None:
             self.arch = best_net
         loss, acc, mean_err = self.predict(data, labels)
-        if VERB:
+        if self.verb:
             if self.class_type:
                 print('Training Accuracy: {} ({}/{})'.format(round(acc * 100.0, 2), int(round(acc*data.shape[0])), data.shape[0]), end=" - ")
             print('Training Loss: {}'.format(loss), end=" - ")

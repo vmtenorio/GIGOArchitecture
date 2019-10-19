@@ -8,7 +8,7 @@ from cnngs_src import graphtools, datatools
 from GIGO.model import Model
 
 from graph_enc_dec import data_sets
-from GIGO.arch import GIGOArch
+from GIGO.arch import BasicArch, MLP, ConvNN
 
 from multiprocessing import Pool, cpu_count
 
@@ -19,9 +19,10 @@ ARCH_INFO = True
 N_CPUS = cpu_count()
 
 # Parameters
+arch_type = "conv" # basic, mlp, conv
 
 # Data parameters
-N_samples = 5000
+N_samples = 10000
 eval_freq = 4
 N_graphs = 1
 
@@ -51,20 +52,25 @@ else:
 median = False
 
 # NN Parameters
-Ki = 2
-Ko = 2
-Fi = [1,int(N/2),N]
-Fo = [N,int(N/2),int(N/4)]
-C = [Fo[-1],int(N/8),1]
+if arch_type == "basic":
+    F = [1,int(N/2),N]
+    M = [N*F[-1],2*N,N]
+    K = 2
+elif arch_type == "conv":
+    F = [N, N, N]
+    K = 3
+else:
+    F = [N, N, N]
+    K = "N/A"
 
 loss_func = nn.MSELoss()
 
 optimizer = "ADAM"
-learning_rate = 0.01
+learning_rate = 0.03
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.99
-nonlin = nn.ReLU
+nonlin = nn.Tanh
 
 model_param = {}
 
@@ -81,7 +87,7 @@ model_param['max_non_dec'] = max_non_dec
 model_param['tb_log'] = TB_LOG
 model_param['verb'] = VERB
 
-def test_model(G_params, eps1, eps2, pct, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param):
+def test_model(G_params, eps1, eps2, pct, N_samples, L_filter, arch_type, F, K, nonlin, model_param):
     Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, pct=pct, seed=SEED)
 
     # Define the data model
@@ -89,9 +95,16 @@ def test_model(G_params, eps1, eps2, pct, N_samples, L_filter, Fi, Fo, Ki, Ko, C
     data.to_unit_norm()
 
     Gx.compute_laplacian('normalized')
-    Gy.compute_laplacian('normalized')
+    #Gy.compute_laplacian('normalized')
 
-    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, C, nonlin, ARCH_INFO)
+    if arch_type == "basic":
+        archit = BasicArch(Gx.L.todense(), F, K, M, nonlin, ARCH_INFO)
+    elif arch_type == "mlp":
+        archit = MLP(F, nonlin, ARCH_INFO)
+    elif arch_type == "conv":
+        archit = ConvNN(F, K, nonlin, ARCH_INFO)
+    else:
+        raise RuntimeError("arch_type has to be either basic, mlp or conv")
 
     model_param['arch'] = archit
 
@@ -106,7 +119,7 @@ if __name__ == '__main__':
     for ng in range(N_graphs):
         print("Started test " + str(ng))
         results.append(pool.apply_async(test_model,\
-                        args=[G_params, eps1, eps2, pct, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param]))
+                        args=[G_params, eps1, eps2, pct, N_samples, L_filter, arch_type, F, K, nonlin, model_param]))
 
     mean_norm_errs = np.zeros(N_graphs)
     mse_losses = np.zeros(N_graphs)
@@ -120,7 +133,8 @@ if __name__ == '__main__':
     print("--------------------------------------Ended simulation--------------------------------------")
     print("2G difussed deltas architecture parameters")
     print("Graph: N = {}; c = {}".format(str(N), str(c)))
-    print("Fin: {}, Fout: {}, Kin: {}, Kout: {}, C: {}".format(Fi, Fo, Ki, Ko, C))
+    print("Architecture: " + arch_type)
+    print("F: {}, K: {}".format(F, K))
     print("Non lin: " + str(nonlin))
     print("N params: " + str(n_params))
     #print("MSE loss = {}".format(str(mse_losses)))
