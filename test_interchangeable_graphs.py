@@ -25,7 +25,7 @@ EXPS = [{'type': 'Enc_Dec',
          'f_enc': [1, 5, 5, 10, 10, 15, 15],
          'n_enc': [256, 128, 64, 32, 16, 8, 4],
          'f_dec': [15, 15, 10, 10, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 124, 256],
+         'n_dec': [4, 8, 16, 32, 64, 128, 256],
          'f_conv': [5, 5, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -92,9 +92,9 @@ def train_models(Gs, signals, lrn):
                                     data.val_Y)
         _, med_err[i], mse[i] = model.test(data.test_X, data.test_Y)
         models_state.append(model.state_dict())
-    
 
-        
+
+
 
         # DEBUG!
         if exp['type'] == 'Linear':
@@ -127,10 +127,6 @@ def train_models(Gs, signals, lrn):
               .format(i, exp['type'], model.count_params(),
                       mse_error, med_error))
 
-    for i, exp in enumerate(EXPS):
-        print('Original Graph: {}-{} ({}): epochs {} - mse {} - MedianErr: {}'
-              .format(i, exp['type'], model.count_params(), epochs[i],
-                      mse[i], med_err[i]))
     print()
     return models_state
 
