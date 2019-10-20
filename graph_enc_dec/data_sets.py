@@ -165,7 +165,6 @@ class DiffusedSparse2GS:
 
     def median_neighbours_nodes(self, X, G):
         X_aux = np.zeros(X.shape)
-        # X = np.tanh(X)
         for i in range(G.N):
             _, neighbours = np.asarray(G.W.todense()[i, :] != 0).nonzero()
             X_aux[:, i] = np.median(X[:, np.append(neighbours, i)], axis=1)

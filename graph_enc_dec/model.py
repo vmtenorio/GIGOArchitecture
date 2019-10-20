@@ -94,6 +94,7 @@ class Model:
             print(params, "\t", self.arch.state_dict()[params].size())
 
     def test(self, test_X, test_Y):
+        self.arch.eval()
         # Ignoring dim[1] with only one channel
         shape = [test_X.shape[0], test_X.shape[2]]
 

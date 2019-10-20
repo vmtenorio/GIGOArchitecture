@@ -16,16 +16,16 @@ SEED = 15
 # TODO: test graph creation --> check graphs are symm
 class PerturbatedGraphsTest(unittest.TestCase):
     def setUp(self):
+        np.random.seed(SEED)
         self.G_params = {}
         self.G_params['type'] = ds.SBM # SBM or ER
-        self.G_params['N'] = N = 256
+        self.G_params['N'] = self.N = 256
         self.G_params['k'] = k = 4
         self.G_params['p'] = 0.20
         self.G_params['q'] = 0.015/4
         self.G_params['type_z'] = ds.RAND
 
     def test_graph_reproducibility(self):
-        np.random.seed(SEED)
         Gx, Gy = ds.perturbated_graphs(self.G_params, 10,
                                        10, pct=True, seed=SEED)
         print('Link x:', Gx.Ne)
@@ -34,22 +34,47 @@ class PerturbatedGraphsTest(unittest.TestCase):
         self.assertEqual(1672, Gy.Ne)
         self.assertAlmostEqual(0.1935096153846, np.sum(Gx.A != Gy.A)/2/Gx.Ne)
 
+    def test_probability_perturbation(self):
+        create = 0.0005
+        destroy = 0.05
+        n_graphs = 10
+        diff_links = np.zeros(n_graphs)
+        exp_err = np.zeros(n_graphs)
+        margin = 6
+        for i in range(n_graphs):
+            Gx, Gy = ds.perturbated_graphs(self.G_params, create,
+                                           destroy, pct=False, seed=SEED)
+            Ax = Gx.W.todense()
+            Ay = Gy.W.todense()
+            self.assertFalse(Gx.is_directed())
+            self.assertTrue(Gx.is_connected())
+            self.assertEqual(np.sum(np.diag(Ax)), 0)
+            self.assertFalse(Gy.is_directed())
+            self.assertTrue(Gy.is_connected())
+            self.assertEqual(np.sum(np.diag(Ay)), 0)
+            diff_links[i] = np.sum(Ax != Ay)/Gx.Ne/2
+            exp_err[i] = (create*(Gx.N*(Gx.N-1)/2-Gx.Ne) + Gx.Ne*destroy)/Gx.N
+        self.assertTrue(np.mean(diff_links) <= (np.mean(exp_err)+margin)/100)
+        self.assertTrue(np.mean(diff_links) >= (np.mean(exp_err)-margin)/100)
+
     def test_percentage_perturbation(self):
         create = destroy = 5
         up_err_margin = (create + destroy + 2)/100
         bottom_err_margin = (create + destroy - 2)/100
-        Gx, Gy = ds.perturbated_graphs(self.G_params, create,
-                                       destroy, pct=True, seed=SEED)
-        Ax = Gx.W.todense()
-        Ay = Gy.W.todense()
-        self.assertFalse(Gx.is_directed())
-        self.assertTrue(Gx.is_connected())
-        self.assertEqual(np.sum(np.diag(Ax)), 0)
-        self.assertFalse(Gy.is_directed())
-        self.assertTrue(Gy.is_connected())
-        self.assertEqual(np.sum(np.diag(Ay)), 0)
-        self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 <= up_err_margin)
-        self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 >= bottom_err_margin)
+        for i in range(10):
+            Gx, Gy = ds.perturbated_graphs(self.G_params, create,
+                                           destroy, pct=True, seed=SEED)
+            Ax = Gx.W.todense()
+            Ay = Gy.W.todense()
+            print('diff:', np.sum(Ax != Ay)/Gx.Ne/2)
+            self.assertFalse(Gx.is_directed())
+            self.assertTrue(Gx.is_connected())
+            self.assertEqual(np.sum(np.diag(Ax)), 0)
+            self.assertFalse(Gy.is_directed())
+            self.assertTrue(Gy.is_connected())
+            self.assertEqual(np.sum(np.diag(Ay)), 0)
+            self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 <= up_err_margin)
+            self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 >= bottom_err_margin)
 
 
 class LinearDS2GS2GSTest(unittest.TestCase):
@@ -57,14 +82,15 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         np.random.seed(SEED)
         self.G_params = {}
         self.G_params['type'] = ds.SBM
-        self.G_params['N']  = 32
-        self.G_params['k']  = 4
+        self.G_params['N'] = 32
+        self.G_params['k'] = 4
         self.G_params['p'] = 0.7
         self.G_params['q'] = 0.1
         self.G_params['type_z'] = ds.RAND
         self.eps1 = 0.1
         self.eps2 = 0.3
-        self.Gx, self.Gy = ds.perturbated_graphs(self.G_params, self.eps1, self.eps2, seed=SEED)
+        self.Gx, self.Gy = ds.perturbated_graphs(self.G_params, self.eps1,
+                                                 self.eps2, seed=SEED)
 
     def test_S_ER(self):
         n_samps = [50, 20, 20]
@@ -126,15 +152,15 @@ class GraphClustSizesTest(unittest.TestCase):
     def setUp(self):
         self.G_params = {}
         self.G_params['type'] = ds.SBM
-        self.G_params['N']  = 256
-        self.G_params['k']  = 4
+        self.G_params['N'] = 256
+        self.G_params['k'] = 4
         self.G_params['p'] = 0.15
         self.G_params['q'] = 0.01/4
         self.G_params['type_z'] = ds.CONT
         self.G = ds.create_graph(self.G_params, seed=SEED)
 
     def test_wrong_sizes_enc(self):
-        nodes = [256,256,64,64,32,100,16,4,4]
+        nodes = [256, 256, 64, 64, 32, 100, 16, 4, 4]
         try:
             gc.MultiResGraphClustering(self.G, nodes, k=4, up_method=None)
             self.fail()
@@ -142,20 +168,20 @@ class GraphClustSizesTest(unittest.TestCase):
             pass
 
     def all_sizes_diff_enc(self):
-        nodes = [256,64,32,16,4]
+        nodes = [256, 64, 32, 16, 4]
         cluster = gc.MultiResGraphClustering(self.G, nodes, k=4, up_method=None)
         self.assertEqual(len(nodes), len(cluster.sizes))
         self.assertEqual(len(nodes)-1, len(cluster.Ds))
 
     def repeated_sizes_enc(self):
-        nodes = [256,256,256,64,32,32,16,4,4]
+        nodes = [256, 256, 256, 64, 32, 32, 16, 4, 4]
         no_rep_nodes = set(nodes)
         cluster = gc.MultiResGraphClustering(self.G, nodes, k=4, up_method=None)
         self.assertEqual(len(nodes), len(cluster.sizes))
         self.assertEqual(len(no_rep_nodes)-1, len(cluster.Ds))
 
     def test_wrong_sizes_dec(self):
-        nodes = [4,4,16,32,32,64,64,256,64,256,256]
+        nodes = [4, 4, 16, 32, 32, 64, 64, 256, 64, 256, 256]
         try:
             gc.MultiResGraphClustering(self.G, nodes, k=4, up_method=None)
             self.fail()
