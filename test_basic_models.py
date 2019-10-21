@@ -24,7 +24,7 @@ arch_type = "basic" # basic, mlp, conv, linear
 # Data parameters
 N_samples = 10000
 eval_freq = 4
-N_graphs = 1
+N_graphs = 12
 
 L_filter = 5
 
