@@ -6,14 +6,13 @@ import numpy as np
 from cnngs_src import graphtools, datatools
 
 from GIGO.model import Model
-
 from graph_enc_dec import data_sets
 from GIGO.arch import GIGOArch
 
 from multiprocessing import Pool, cpu_count
 
 SEED = None
-TB_LOG = True
+TB_LOG = False
 VERB = True
 ARCH_INFO = True
 N_CPUS = cpu_count()
@@ -23,24 +22,24 @@ N_CPUS = cpu_count()
 # Data parameters
 N_samples = 5000
 eval_freq = 4
-N_graphs = 1
+N_graphs = 8
 
-L_filter = 5
+L_filter = 6
 
 num_epochs = 200
 batch_size = 100
 max_non_dec = 5
 
 # Graph parameters
-N = 32
-c = 4
+N = 64
+k = 4
 G_params = {}
 G_params['type'] = data_sets.SBM #SBM or ER
 G_params['N'] = N
-G_params['k'] = c
-G_params['p'] = 0.8
+G_params['k'] = k
+G_params['p'] = [0.6, 0.7, 0.6, 0.8]
 G_params['q'] = 0.2
-G_params['type_z'] = data_sets.CONT
+G_params['type_z'] = data_sets.RAND
 pct = True
 if pct:
     eps1 = 5
@@ -48,14 +47,22 @@ if pct:
 else:
     eps1 = 0.1
     eps2 = 0.3
-median = False
+median = True
 
 # NN Parameters
 Ki = 2
 Ko = 2
 Fi = [1,int(N/2),N]
 Fo = [N,int(N/2),int(N/4)]
-C = [Fo[-1],int(N/8),1]
+C = [Fo[-1],int(N/4),1]
+nonlin_s = "relu"
+if nonlin_s == "relu":
+    nonlin = nn.ReLU
+elif nonlin_s == "tanh":
+    nonlin = nn.Tanh
+elif nonlin_s == "sigmoid":
+    nonlin = nn.Sigmoid
+batch_norm = True
 
 loss_func = nn.MSELoss()
 
@@ -64,7 +71,6 @@ learning_rate = 0.01
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.99
-nonlin = nn.ReLU
 
 model_param = {}
 
@@ -85,13 +91,13 @@ def test_model(G_params, eps1, eps2, pct, N_samples, L_filter, Fi, Fo, Ki, Ko, C
     Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2, pct=pct, seed=SEED)
 
     # Define the data model
-    data = data_sets.LinearDS2GS(Gx, Gy, N_samples, L_filter, G_params['k'])
+    data = data_sets.LinearDS2GS(Gx, Gy, N_samples, L_filter, G_params['k']) # Last argument is n_delts
     data.to_unit_norm()
 
     Gx.compute_laplacian('normalized')
     Gy.compute_laplacian('normalized')
 
-    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, C, nonlin, ARCH_INFO)
+    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, C, nonlin, batch_norm, ARCH_INFO)
 
     model_param['arch'] = archit
 
@@ -117,16 +123,36 @@ if __name__ == '__main__':
         mse_losses[ng], mean_norm_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
 
 
+    mse_loss = np.mean(mse_losses)
+    mean_norm_err = np.mean(mean_norm_errs)
+    median_mean_norm_err = np.median(mean_norm_errs)
+    std_mean_norm_err = np.std(mean_norm_errs)
+    mean_t_conv = round(np.mean(t_conv), 6)
+    mean_ep_conv = np.mean(epochs_conv)
     print("--------------------------------------Ended simulation--------------------------------------")
     print("2G difussed deltas architecture parameters")
-    print("Graph: N = {}; c = {}".format(str(N), str(c)))
+    print("Graph: N = {}; k = {}".format(str(N), str(k)))
     print("Fin: {}, Fout: {}, Kin: {}, Kout: {}, C: {}".format(Fi, Fo, Ki, Ko, C))
     print("Non lin: " + str(nonlin))
     print("N params: " + str(n_params))
     #print("MSE loss = {}".format(str(mse_losses)))
-    print("MSE loss mean = {}".format(np.mean(mse_losses)))
+    print("MSE loss mean = {}".format(mse_loss))
     #print("Mean Squared Error = {}".format(str(mean_norm_errs)))
-    print("Mean Norm Error = {}".format(np.mean(mean_norm_errs)))
-    print("Median error = {}".format(np.median(mean_norm_errs)))
-    print("STD = {}".format(np.std(mean_norm_errs)))
-    print("Until convergence: Time = {} - Epochs = {}".format(np.mean(t_conv), np.mean(epochs_conv)))
+    print("Mean Norm Error = {}".format(mean_norm_err))
+    print("Median error = {}".format(median_mean_norm_err))
+    print("STD = {}".format(std_mean_norm_err))
+    print("Until convergence: Time = {} - Epochs = {}".format(mean_t_conv, mean_ep_conv))
+    if not os.path.isfile('./out.csv'):
+        f = open('out.csv', 'w')
+        f.write('Nodes|Communities|N samples|Batch size|' +
+                    'F in|F out|K in|K out|C|Learning Rate|Non Lin|Median|' +
+                    'MSE loss|Mean norm err|Median mean norm err|STD mean norm err|' +
+                    'Mean t convergence|Mean epochs convergence\n')
+    else:
+        f = open('out.csv', 'a')
+    f.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+                    N, k, N_samples, batch_size,
+                    Fi, Fo, Ki, Ko, C, learning_rate, nonlin_s, median,
+                    mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err,
+                    mean_t_conv, mean_ep_conv))
+    f.close()

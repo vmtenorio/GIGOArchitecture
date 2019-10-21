@@ -16,7 +16,8 @@ class GIGOArch(nn.Module):
                 Ko,         # Filter taps in each graph filter layer for the output graph
                 C,          # Convolutional layers
                 #M,          # Neurons in each fully connected layer (list)
-                nonlin,     # Non linearity function)
+                nonlin,     # Non linearity function
+                batch_norm, # Whether or not to apply batch normalization
                 arch_info):
         super(GIGOArch, self).__init__()
         # In python 3
@@ -40,6 +41,7 @@ class GIGOArch(nn.Module):
         self.C = C
         #self.M = M
         self.nonlin = nonlin
+        self.batch_norm = batch_norm
         self.l_param = []
 
         # Some checks to verify data integrity
@@ -56,6 +58,8 @@ class GIGOArch(nn.Module):
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
             gfli.append(layers.GraphFilter(self.Si, self.Fi[l], self.Fi[l+1], self.Ki))
             gfli.append(self.nonlin())
+            if self.batch_norm:
+                gfli.append(nn.BatchNorm1d(self.Ni))
             self.l_param.append('weights_gfi_' + str(l))
             self.l_param.append('bias_gfi_' + str(l))
             self.n_params += self.Fi[l] * self.Fi[l+1] * self.Ki + self.Fi[l+1] * self.Ni
@@ -70,6 +74,8 @@ class GIGOArch(nn.Module):
             gflo.append(layers.GraphFilter(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
             if l < len(self.Fo) -1:
                 gflo.append(self.nonlin())
+            if self.batch_norm:
+                gfli.append(nn.BatchNorm1d(self.No))
             self.l_param.append('weights_gfo_' + str(l))
             self.l_param.append('bias_gfo_' + str(l))
             self.n_params += self.Fo[l] * self.Fo[l+1] * self.Ko + self.Fo[l+1] * self.No
@@ -240,7 +246,8 @@ class MLP(nn.Module):
         self.n_params = 0
         for l in range(len(self.F)-1):
             layers.append(nn.Linear(self.F[l], self.F[l+1]))
-            layers.append(self.nonlin())
+            if self.nonlin != None:
+                layers.append(self.nonlin())
             self.l_param.append('weights_' + str(l))
             self.l_param.append('bias_' + str(l))
             self.n_params += self.F[l] * self.F[l+1] + self.F[l+1]
@@ -259,8 +266,9 @@ class MLP(nn.Module):
         return self.MLP(x)
 
 class ConvNN(nn.Module):
-    def __init__(self, F, kernel_size, nonlin, arch_info):
+    def __init__(self, N, F, kernel_size, nonlin, arch_info):
         super(ConvNN, self).__init__()
+        self.N = N  # For length calculation
         self.F = F
         self.kernel_size = kernel_size
         self.nonlin = nonlin
@@ -276,6 +284,9 @@ class ConvNN(nn.Module):
             self.n_params += self.F[l] * self.F[l+1] * self.kernel_size + self.F[l+1]
         self.conv1d_nl = nn.Sequential(*layers)
 
+        self.delta_len = (self.kernel_size - 1) * (len(self.F)-1)
+        self.MLP = nn.Linear((self.N - self.delta_len)*self.F[-1], self.N)
+
         if arch_info:
             print("Convolutional architecture")
             print("Features: {}, Kernel size: {}".format(str(self.F), self.kernel_size))
@@ -287,4 +298,22 @@ class ConvNN(nn.Module):
         if type(x) != torch.FloatTensor:
             x = torch.FloatTensor(x)
 
-        return self.conv1d_nl(x)
+        T = x.shape[0]
+        try:
+            N = x.shape[2]
+            F = x.shape[1]
+            assert F == self.F[0]
+        except IndexError:
+            F = 1
+            x = x.unsqueeze(1)
+            assert self.F[0] == 1
+
+        y = self.conv1d_nl(x)
+        T, C, L = y.shape
+
+        assert C == self.F[-1]
+        assert L == self.N - self.delta_len
+
+        y = y.reshape([T, L*C])
+
+        return self.MLP(y)
