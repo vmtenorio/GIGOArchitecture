@@ -21,22 +21,31 @@ SAVE_PATH = './results/n_params'
 EVAL_F = 5
 P_N = [0]
 
-EXPS = [{'type': 'Constant',  # Constant
-         'f_enc': [1, 5, 5, 5, 5],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64],
-         'f_conv': [5, 5, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'HalfResizing',  # Constant
-         'f_enc': [1, 5, 5, 5, 5],
-         'n_enc': [64, 16, 16, 4, 4],
-         'f_dec': [5, 5, 5, 5, 5],
-         'n_dec': [4, 4, 16, 16, 64],
-         'f_conv': [5, 5, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
+EXPS = [
+        # {'type': 'WEI',  # Constant
+        #  'f_enc': [1, 5, 5, 5, 5],
+        #  'n_enc': [64, 32, 16, 8, 4],
+        #  'f_dec': [5, 5, 5, 5, 5],
+        #  'n_dec': [4, 8, 16, 32, 64],
+        #  'f_conv': [5, 5, 1],
+        #  'ups': gc.WEI,
+        #  'downs': gc.WEI},
+        # {'type': 'BIN',  # Constant
+        #  'f_enc': [1, 5, 5, 5, 5],
+        #  'n_enc': [64, 32, 16, 8, 4],
+        #  'f_dec': [5, 5, 5, 5, 5],
+        #  'n_dec': [4, 8, 16, 32, 64],
+        #  'f_conv': [5, 5, 1],
+        #  'ups': gc.BIN,
+        #  'downs': gc.BIN},
+        # {'type': 'BIN',  # Constant
+        #  'f_enc': [1, 5, 5, 5, 5],
+        #  'n_enc': [64, 32, 16, 8, 4],
+        #  'f_dec': [5, 5, 5, 5, 5],
+        #  'n_dec': [4, 8, 16, 32, 64],
+        #  'f_conv': [5, 5, 1],
+        #  'ups': gc.NO_A,
+        #  'downs': gc.NO_A},
         {'type': 'Constant',  # Constant
          'f_enc': [1, 5, 5, 5],
          'n_enc': [64, 16, 8, 4],
@@ -46,6 +55,22 @@ EXPS = [{'type': 'Constant',  # Constant
          'ups': gc.WEI,
          'downs': gc.WEI},
         {'type': 'Constant',  # Constant
+         'f_enc': [1, 5, 5, 5],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [5, 5, 5, 5],
+         'n_dec': [4, 8, 16, 64],
+         'f_conv': [5, 5, 1],
+         'ups': gc.BIN,
+         'downs': gc.BIN},
+        {'type': 'Constant',  # Constant
+         'f_enc': [1, 5, 5, 5],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [5, 5, 5, 5],
+         'n_dec': [4, 8, 16, 64],
+         'f_conv': [5, 5, 1],
+         'ups': gc.NO_A,
+         'downs': gc.NO_A},
+        {'type': 'Constant',  # Constant
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64, 32, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
@@ -53,20 +78,36 @@ EXPS = [{'type': 'Constant',  # Constant
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'HalfResizing',  # Constant
+        {'type': 'Constant',  # Constant
          'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 16, 16, 4, 4],
+         'n_enc': [64, 32, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 4, 16, 16, 64],
+         'n_dec': [4, 8, 16, 32, 64],
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
+         'ups': gc.BIN,
+         'downs': gc.BIN},
+        {'type': 'Constant',  # Constant
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.NO_A,
+         'downs': gc.NO_A},
         {'type': 'Constant',  # Constant
          'f_enc': [1, 3, 3, 3],
          'n_enc': [64, 16, 8, 4],
          'f_dec': [3, 3, 3, 3],
          'n_dec': [4, 8, 16, 64],
-         'f_conv': [3, 1],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'Constant',  # Constant
+         'f_enc': [1, 2, 2, 2],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [2, 2, 2, 2],
+         'n_dec': [4, 8, 16, 64],
+         'f_conv': [2, 2, 1],
          'ups': gc.WEI,
          'downs': gc.WEI}]
 
@@ -193,7 +234,7 @@ if __name__ == '__main__':
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
     Gs['pct'] = True
-    Gs['pct_val'] = [5, 5]
+    Gs['pct_val'] = [10, 10]
 
     # Signals
     signals = {}

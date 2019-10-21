@@ -21,22 +21,30 @@ SAVE_PATH = './results/perturbation'
 EVAL_F = 1
 
 
-EXPS = [{'type': 'Enc_Dec',
-         'f_enc': [1, 5, 5, 10, 10, 15, 15],
-         'n_enc': [256, 128, 64, 32, 16, 8, 4],
-         'f_dec': [15, 15, 10, 10, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 128, 256],
-         'f_conv': [5, 5, 1],
+EXPS = [{'type': 'Enc_Dec',  # Constant
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'Enc_Dec',  # Constant
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64]*5,
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [64]*5,
+         'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
         {'type': 'AutoConv',
-         'f_enc': [1, 5, 5, 8],
-         'kernel_enc': 10,
-         'f_dec': [8, 5, 5, 1],
-         'kernel_dec': 10},
+         'f_enc': [1, 3, 3, 4],
+         'kernel_enc': 3,
+         'f_dec': [4, 3, 3, 1],
+         'kernel_dec': 3},
         {'type': 'AutoFC',
-         'n_enc': [256, 3],
-         'n_dec': [3, 256],
+         'n_enc': [64, 1],
+         'n_dec': [1, 64],
          'bias': True}]
 
 N_EXPS = len(EXPS)
@@ -92,9 +100,6 @@ def train_models(Gs, signals, lrn):
                                     data.val_Y)
         _, med_err[i], mse[i] = model.test(data.test_X, data.test_Y)
         models_state.append(model.state_dict())
-
-
-
 
         # DEBUG!
         if exp['type'] == 'Linear':
@@ -173,7 +178,7 @@ def test_other_graphs(Gs, signals, lrn, models_state):
             if exp['type'] != 'Linear':
                 model = Model(net)
             model.load_state_dict(models_state[j])
-            _, med_err[i, j], mse[i, j] = model.test(data.test_X, data.test_Y)
+            mean_err[i, j], med_err[i, j], mse[i, j] = model.test(data.test_X, data.test_Y)
 
             # PRINT
     return med_err, mse
@@ -202,11 +207,11 @@ if __name__ == '__main__':
     # Signals
     signals = {}
     signals['L'] = 6
-    signals['samples'] = [5000, 1000, 1000]
+    signals['samples'] = [2000, 500, 500]
     signals['deltas'] = k
     signals['noise'] = 0
     signals['median'] = True
-    signals['same_coeffs'] = True
+    signals['same_coeffs'] = False
     signals['test_only'] = True
 
     learning = {}
@@ -220,7 +225,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     models_state = train_models(Gs, signals, learning)
-    # test_other_graphs(Gs, signals, learning, models_state)
-
+    med_err, mse = test_other_graphs(Gs, signals, learning, models_state)
+    utils.print_partial_results(signals['noise'], EXPS, mse, med_err)
     end_time = time.time()
     print('Time: {} hours'.format((end_time-start_time)/3600))

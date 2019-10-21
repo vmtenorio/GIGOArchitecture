@@ -32,29 +32,33 @@ EXPS = [{'type': 'Linear', 'N': 64},
          'downs': gc.WEI},
         {'type': 'Enc_Dec',  # Constant
          'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 16, 16, 4, 4],
+         'n_enc': [64, 32, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 4, 16, 16, 64],
+         'n_dec': [4, 8, 16, 32, 64],
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
+         'ups': gc.BIN,
+         'downs': gc.BIN},
+        {'type': 'Enc_Dec',  # Constant
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.NO_A,
+         'downs': gc.NO_A},
         {'type': 'Enc_Dec',  # Constant
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64]*5,
          'f_dec': [3, 3, 3, 3, 3],
          'n_dec': [64]*5,
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
+         'ups': None,
+         'downs': None},
         {'type': 'AutoConv',
          'f_enc': [1, 3, 3, 4],
          'kernel_enc': 3,
          'f_dec': [4, 3, 3, 1],
          'kernel_dec': 3},
-        {'type': 'AutoFC',
-         'n_enc': [64, 4],
-         'n_dec': [4, 64],
-         'bias': True},
         {'type': 'AutoFC',
          'n_enc': [64, 1],
          'n_dec': [1, 64],
@@ -70,10 +74,9 @@ def run(id, Gs, signals, lrn, p_n):
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
                           same_coeffs=signals['same_coeffs'])
-    # data = ds.NonLinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
-    #                          signals['deltas'], median=signals['median'],
-    #                          same_coeffs=signals['same_coeffs'])
     data.to_unit_norm()
+    median_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
+    print('Signal {}: distance {}'.format(id, median_dist))
     data.add_noise(p_n, test_only=signals['test_only'])
     data.to_tensor()
 
@@ -136,7 +139,7 @@ if __name__ == '__main__':
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
     Gs['pct'] = True
-    Gs['pct_val'] = [5, 5]
+    Gs['pct_val'] = [10, 10]
 
     # Signals
     signals = {}
