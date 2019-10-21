@@ -19,38 +19,112 @@ VERBOSE = False
 SAVE = True
 SAVE_PATH = './results/perturbation'
 EVAL_F = 5
-PCT = [[0.0005, 0.05]]
+PCT = [[5, 5], [10, 10], [15, 15], [20, 20]]
 
 
-EXPS = [{'type': 'Linear', 'N': 256},
-        {'type': 'Enc_Dec',
-         'f_enc': [1, 5, 5, 10, 10, 15, 15],
-         'n_enc': [256, 128, 64, 32, 16, 8, 4],
-         'f_dec': [15, 15, 10, 10, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 124, 256],
-         'f_conv': [5, 5, 1],
+EXPS = [{'type': 'Enc_Dec',  # 192
+         'f_enc': [1, 4, 5, 5],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [5, 5, 4, 4],
+         'n_dec': [4, 8, 16, 64],
+         'f_conv': [4, 4, 1],
          'ups': gc.WEI,
-         'downs': gc.WEI}]
+         'downs': gc.WEI},
+        {'type': 'Enc_Dec',  # 192
+         'f_enc': [1, 4, 5, 5],
+         'n_enc': [64]*4,
+         'f_dec': [5, 5, 4, 4],
+         'n_dec': [64]*4,
+         'f_conv': [4, 4, 1],
+         'ups': None,
+         'downs': None},
+        {'type': 'AutoConv',  # 210
+         'f_enc': [1, 2, 2, 3, 3],
+         'kernel_enc': 5,
+         'f_dec': [3, 3, 2, 2, 1],
+         'kernel_dec': 5},
+        {'type': 'AutoFC',  # 193
+         'n_enc': [64, 1],
+         'n_dec': [1, 64],
+         'bias': True},
+        {'type': 'Enc_Dec',  # 132
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'Enc_Dec',  # 132
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64]*5,
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [64]*5,
+         'f_conv': [3, 3, 1],
+         'ups': None,
+         'downs': None},
+        {'type': 'Enc_Dec',  # 102
+         'f_enc': [1, 3, 3, 3],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'AutoConv',  # 140
+         'f_enc': [1, 2, 2, 2, 2],
+         'kernel_enc': 5,
+         'f_dec': [2, 2, 2, 2, 1],
+         'kernel_dec': 5},
+        {'type': 'AutoFC',  # 128
+         'n_enc': [64, 1],
+         'n_dec': [1, 64],
+         'bias': False}]
+
+
+# EXPS = [{'type': 'Enc_Dec',  # Constant
+#          'f_enc': [1, 3, 3, 3, 3],
+#          'n_enc': [64, 32, 16, 8, 4],
+#          'f_dec': [3, 3, 3, 3, 3],
+#          'n_dec': [4, 8, 16, 32, 64],
+#          'f_conv': [3, 3, 1],
+#          'ups': gc.WEI,
+#          'downs': gc.WEI},
+#         {'type': 'Enc_Dec',  # Constant
+#          'f_enc': [1, 3, 3, 3, 3],
+#          'n_enc': [64]*5,
+#          'f_dec': [3, 3, 3, 3, 3],
+#          'n_dec': [64]*5,
+#          'f_conv': [3, 3, 1],
+#          'ups': None,
+#          'downs': None},
+#         {'type': 'AutoConv',
+#          'f_enc': [1, 3, 3, 4],
+#          'kernel_enc': 3,
+#          'f_dec': [4, 3, 3, 1],
+#          'kernel_dec': 3},
+#         {'type': 'AutoFC',
+#          'n_enc': [64, 1],
+#          'n_dec': [1, 64],
+#          'bias': True},
+#         {'type': 'AutoFC',
+#          'n_enc': [64, 1],
+#          'n_dec': [1, 64],
+#          'bias': False}]
 
 N_EXPS = len(EXPS)
 
 
 def run(id, Gs, signals, lrn, pct):
-    Gx, Gy = ds.perturbated_graphs(Gs['params'], pct[0], pct[1], pct=False,
+    Gx, Gy = ds.perturbated_graphs(Gs['params'], pct[0], pct[1], pct=Gs['pct'],
                                    seed=SEED)
-    print('Links different(%):', np.sum(Gx.A != Gy.A)/2/Gx.Ne*100,
-          'of ', Gx.Ne)
-
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
                           same_coeffs=signals['same_coeffs'])
-
-    # data = ds.NonLinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
-    #                          signals['deltas'], median=signals['median'],
-    #                          same_coeffs=signals['same_coeffs'])
-
     data.to_unit_norm()
     data.add_noise(signals['noise'], test_only=signals['test_only'])
+    median_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
+    print('Signal {}: distance {}'.format(id, median_dist))
     data.to_tensor()
 
     mean_err = np.zeros(N_EXPS)
@@ -103,22 +177,26 @@ if __name__ == '__main__':
     Gs = {}
     Gs['n_graphs'] = 25
     G_params = {}
-    G_params['type'] = ds.SBM  # SBM or ER
-    G_params['N'] = N = 256
+    G_params['type'] = ds.SBM
+    G_params['N'] = N = 64
     G_params['k'] = k = 4
-    G_params['p'] = 0.2
-    G_params['q'] = 0.015/4
+    G_params['p'] = [0.6, 0.7, 0.6, 0.8]
+    G_params['q'] = [[0, 0.05, 0.01, 0.0],
+                     [0.05, 0, 0.01, 0.05],
+                     [0.01, 0.01, 0, 0.05],
+                     [0, 0.05, 0.05, 0]]
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
+    Gs['pct'] = True
 
     # Signals
     signals = {}
     signals['L'] = 6
-    signals['samples'] = [5000, 1000, 1000]
+    signals['samples'] = [2000, 500, 500]
     signals['deltas'] = k
     signals['noise'] = 0
     signals['median'] = True
-    signals['same_coeffs'] = True
+    signals['same_coeffs'] = False
     signals['test_only'] = True
 
     learning = {}
