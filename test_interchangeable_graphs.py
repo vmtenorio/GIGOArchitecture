@@ -21,7 +21,7 @@ SAVE_PATH = './results/perturbation'
 EVAL_F = 1
 
 
-EXPS = [{'type': 'Enc_Dec',  # Constant
+EXPS = [{'type': 'Enc_Dec',  # 132
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64, 32, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
@@ -29,23 +29,19 @@ EXPS = [{'type': 'Enc_Dec',  # Constant
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'Enc_Dec',  # Constant
+        {'type': 'Enc_Dec',  # 132
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64]*5,
          'f_dec': [3, 3, 3, 3, 3],
          'n_dec': [64]*5,
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'AutoConv',
-         'f_enc': [1, 3, 3, 4],
-         'kernel_enc': 3,
-         'f_dec': [4, 3, 3, 1],
-         'kernel_dec': 3},
-        {'type': 'AutoFC',
-         'n_enc': [64, 1],
-         'n_dec': [1, 64],
-         'bias': True}]
+         'ups': None,
+         'downs': None},
+        {'type': 'AutoConv',  # 140
+         'f_enc': [1, 2, 2, 2, 2],
+         'kernel_enc': 5,
+         'f_dec': [2, 2, 2, 2, 1],
+         'kernel_dec': 5}]
 
 N_EXPS = len(EXPS)
 
@@ -65,7 +61,7 @@ def train_models(Gs, signals, lrn):
     epochs = np.zeros(N_EXPS)
     med_err = np.zeros(N_EXPS)
     mse = np.zeros(N_EXPS)
-    models_state = []
+    models_states = []
     for i, exp in enumerate(EXPS):
         # Create model
         if exp['type'] == 'Linear':
@@ -98,48 +94,20 @@ def train_models(Gs, signals, lrn):
         # Fit models
         epochs[i], _, _ = model.fit(data.train_X, data.train_Y, data.val_X,
                                     data.val_Y)
-        _, med_err[i], mse[i] = model.test(data.test_X, data.test_Y)
-        models_state.append(model.state_dict())
-
-        # DEBUG!
-        if exp['type'] == 'Linear':
-            model = LinearModel(exp['N'])
-        elif exp['type'] == 'Enc_Dec':
-            clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
-                                                 k=exp['n_enc'][-1],
-                                                 up_method=exp['downs'])
-            clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
-                                                 k=exp['n_enc'][-1],
-                                                 up_method=exp['ups'])
-            net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
-                                      exp['f_dec'], clust_y.sizes, clust_y.Us,
-                                      exp['f_conv'], As_dec=clust_y.As,
-                                      As_enc=clust_x.As, act_fn=lrn['af'],
-                                      last_act_fn=lrn['laf'], ups=exp['ups'],
-                                      downs=exp['downs'])
-        elif exp['type'] == 'AutoConv':
-            net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
-                                  exp['f_dec'], exp['kernel_dec'])
-        elif exp['type'] == 'AutoFC':
-            net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
-        else:
-            raise RuntimeError('Unknown experiment type')
-        if exp['type'] != 'Linear':
-            model = Model(net)
-        model.load_state_dict(models_state[i])
         _, med_error, mse_error = model.test(data.test_X, data.test_Y)
+        models_states.append(model.state_dict())
         print('DEBUG: Original Graph {}-{} ({}): mse {} - MedianErr: {}'
               .format(i, exp['type'], model.count_params(),
                       mse_error, med_error))
 
     print()
-    return models_state
+    return models_states
 
 
 def test_other_graphs(Gs, signals, lrn, models_state):
     med_err = np.zeros((Gs['n_graphs'], N_EXPS))
     mse = np.zeros((Gs['n_graphs'], N_EXPS))
-    for i in Gs['n_graphs']:
+    for i in range(Gs['n_graphs']):
         Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['create'], Gs['destroy'],
                                        pct=Gs['pct'], seed=SEED)
         data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
@@ -178,9 +146,11 @@ def test_other_graphs(Gs, signals, lrn, models_state):
             if exp['type'] != 'Linear':
                 model = Model(net)
             model.load_state_dict(models_state[j])
-            mean_err[i, j], med_err[i, j], mse[i, j] = model.test(data.test_X, data.test_Y)
+            _, med_err[i, j], mse[i, j] = model.test(data.test_X, data.test_Y)
 
-            # PRINT
+            print('DEBUG: Original Graph {}-{} ({}): mse {} - MedianErr: {}'
+                  .format(i, exp['type'], model.count_params(),
+                          mse[i, j], med_err[i, j]))
     return med_err, mse
 
 
@@ -193,12 +163,15 @@ if __name__ == '__main__':
     Gs = {}
     Gs['n_graphs'] = 25
     G_params = {}
-    G_params['type'] = ds.SBM  # SBM or ER
-    G_params['N'] = N = 256
+    G_params['type'] = ds.SBM
+    G_params['N'] = N = 64
     G_params['k'] = k = 4
-    G_params['p'] = 0.2
-    G_params['q'] = 0.015/4
-    G_params['type_z'] = ds.RAND
+    G_params['p'] = [0.6, 0.7, 0.6, 0.8]
+    G_params['q'] = [[0, 0.05, 0.01, 0.0],
+                     [0.05, 0, 0.01, 0.05],
+                     [0.01, 0.01, 0, 0.05],
+                     [0, 0.05, 0.05, 0]]
+    G_params['type_z'] = ds.CONT
     Gs['params'] = G_params
     Gs['pct'] = True
     Gs['create'] = 10
