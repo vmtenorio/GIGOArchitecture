@@ -61,13 +61,14 @@ class FCAutoencoder(nn.Module):
         self.batch_norm = batch_norm
         self.act_fn = act_fn
         self.last_act_fn = last_act_fn
+        self.bias = bias
         self.build_network()
 
     def build_network(self):
         # Encoder section
         for l in range(len(self.nodes_enc)-1):
             self.add_layer(nn.Linear(self.nodes_enc[l], self.nodes_enc[l+1],
-                           bias=False))
+                           bias=self.bias))
             if self.act_fn is not None:
                 self.add_layer(self.act_fn)
             if self.batch_norm:
@@ -76,7 +77,7 @@ class FCAutoencoder(nn.Module):
         # Decoder Section
         for l in range(len(self.nodes_dec)-1):
             self.add_layer(nn.Linear(self.nodes_dec[l], self.nodes_dec[l+1],
-                           bias=False))
+                           bias=self.bias))
             if self.act_fn is not None:
                 self.add_layer(self.act_fn)
             if self.batch_norm:
