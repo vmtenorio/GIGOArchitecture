@@ -15,29 +15,41 @@ from multiprocessing import Pool, cpu_count
 from time import time
 
 TB_LOG = False
+VERB = True
+ARCH_INFO = True
 N_CPUS = cpu_count()
 
 # Parameters
 
 # Data parameters
-N_samples = 2000
+N_samples = 5000
 eval_freq = 4
 N_graphs = 10
 
-L_filter = 5
+L_filter = 6
 
 num_epochs = 40
 batch_size = 100
 max_non_dec = 5
 
 # Graph parameters
+N = 64
+k = 4
 G_params = {}
 G_params['type'] = data_sets.SBM #SBM or ER
-G_params['p'] = 0.8
+G_params['N'] = N
+G_params['k'] = k
+G_params['p'] = [0.6, 0.7, 0.6, 0.8]
 G_params['q'] = 0.2
-G_params['type_z'] = data_sets.CONT
-eps1 = 0.1
-eps2 = 0.3
+G_params['type_z'] = data_sets.RAND
+pct = True
+if pct:
+    eps1 = 5
+    eps2 = 5
+else:
+    eps1 = 0.1
+    eps2 = 0.3
+median = True
 
 loss_func = nn.MSELoss()
 
@@ -58,21 +70,23 @@ model_param['num_epochs'] = num_epochs
 model_param['eval_freq'] = eval_freq
 model_param['max_non_dec'] = max_non_dec
 model_param['tb_log'] = TB_LOG
-
+model_param['verb'] = VERB
 
 # Hyperparameters tuning
 
 learning_rate = [0.05]
 
+F = [[1, int(N/2), N],
+    [1, N],
+    [1, int(N/4), int(N/2), N],
+    [1, int(N/4), N]]
+
 K = [2,3,4]
 
-batch_size = [100]
+batch_size = [100, 200]
 
-N = [64]
-
-# For number of features see below, as it depends on the number of nodes
-
-c = [4]
+C = [[int(N/2),int(N/4),1],
+    []]
 
 median = [True, False]
 
@@ -92,9 +106,23 @@ def run_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
 
     model = Model(**model_param)
     mse_loss, _, mean_norm_err = model.eval(data.train_X, data.train_Y, data.val_X, data.val_Y, data.test_X, data.test_Y)
-    return mse_loss, mean_norm_err
+
+    return mse_loss, mean_norm_err, archit.n_params, model.t_conv, model.epochs_conv
 
 def test_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
+
+    G_params['N'] = n
+    G_params['k'] = comm
+
+    model_param['learning_rate'] = lr
+    model_param['batch_size'] = bs
+    print("Testing: N = {}, c = {}, F = {}, K = {}, BS = {}, LR = {}, Median = {}".format(\
+            n, comm, f, k, bs, lr, m))
+
+    t_init = time()
+    mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err = test_arch(G_params, model_param, m, f, fo, k, k)
+    t_spent = time() - t_init
+
     pool = Pool(processes=N_CPUS)
 
     results = []
@@ -106,6 +134,31 @@ def test_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
     mse_losses = np.zeros(N_graphs)
     for ng in range(N_graphs):
         mse_losses[ng], mean_norm_errs[ng]  = results[ng].get()
+
+    mse_loss = np.mean(mse_losses)
+    mean_norm_err = np.mean(mean_norm_errs)
+    median_mean_norm_err = np.median(mean_norm_errs)
+    std_mean_norm_err = np.std(mean_norm_errs)
+    mean_t_conv = round(np.mean(t_conv), 6)
+    mean_ep_conv = np.mean(epochs_conv)
+
+    print("Results: MSE loss = {}, Mean Norm Err = {}, Median Norm Err = {}, STD Norm Err = {}, Time = {}, Epochs = {}".format(\
+            mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err, mean_t_conv, mean_ep_conv))
+
+    if not os.path.isfile('./out_hyp.csv'):
+        out = open('out_hyp.csv', 'w')
+        out.write('Nodes|Communities|N samples|Batch size|' +
+                    'F in|F out|K in|K out|C|Learning Rate|Non Lin|Median|' +
+                    'MSE loss|Mean norm err|Median mean norm err|STD mean norm err|' +
+                    'Mean t convergence|Mean epochs convergence\n')
+    else:
+        out = open('out_hyp.csv', 'a')
+    out.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+                    N, k, N_samples, batch_size,
+                    Fi, Fo, Ki, Ko, C, learning_rate, nonlin_s, median,
+                    mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err,
+                    mean_t_conv, mean_ep_conv))
+    out.close()
 
     # print("--------------------------------------Ended simulation--------------------------------------")
     # print("2G difussed deltas architecture parameters")
@@ -121,38 +174,12 @@ def test_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
 
 
 if __name__ == "__main__":
-    # Think this better
-    outfile = open('out.csv', 'a')
-    #outfile.write("Fin|Fout|Learning Rate|Kin|Kout|Batch Size|N nodes|N comm|Median|MSE loss|Mean Norm Err|Median Mean Norm Err|STD Mean Norm Err|Time Taken\n")
     for lr in learning_rate:
-        for k in K:
-            for bs in batch_size:
-                for n in N:
-                    F = [[1, int(n/2), n],
-                            [1, n],
-                            [1, int(n/4), int(n/2), n]]       # Would need to check N is a multiple of 2 and 4
-                    for f in F:
-                        fo = f.copy()
-                        fo.reverse()
-                        for comm in c:
-                            for m in median:
-                                G_params['N'] = n
-                                G_params['k'] = comm
-
-                                model_param['learning_rate'] = lr
-                                model_param['batch_size'] = bs
-                                print("Testing: N = {}, c = {}, F = {}, K = {}, BS = {}, LR = {}, Median = {}".format(\
-                                        n, comm, f, k, bs, lr, m))
-
-                                t_init = time()
-                                mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err = test_arch(G_params, model_param, m, f, fo, k, k)
-                                t_spent = time() - t_init
-
-                                print("Results: MSE loss = {}, Mean Norm Err = {}, Median Norm Err = {}, STD Norm Err = {}, Time = {}".format(\
-                                        mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err, t_spent))
-
-                                outfile.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(\
-                                                f,fo,lr,k,k,bs,n,k,m, \
-                                                mse_loss,mean_norm_err, median_mean_norm_err, std_mean_norm_err, \
-                                                round(t_spent, 2)))
-    outfile.close()
+    for k in K:
+    for bs in batch_size:
+    for f in F:
+        fo = f.copy()
+        fo[0] = N/2
+        fo.reverse()
+    for comm in c:
+    for m in median:
