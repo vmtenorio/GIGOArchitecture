@@ -24,7 +24,7 @@ N_CPUS = cpu_count()
 # Data parameters
 N_samples = 5000
 eval_freq = 4
-N_graphs = 1
+N_graphs = 10
 
 L_filter = 6
 
@@ -66,6 +66,7 @@ elif nonlin_s == "tanh":
 elif nonlin_s == "sigmoid":
     nonlin = nn.Sigmoid
 batch_norm = True
+learning_rate = 0.01
 
 optimizer = "ADAM"
 beta1 = 0.9
@@ -186,7 +187,7 @@ def test_arch(lr, k, bs, fi, fo, c, nl, bn):
         out = open('out_hyp.csv', 'a')
     out.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
                     N, k, N_samples, batch_size,
-                    fi, fo, ki, ko, c, lr, nl, median, batch_norm,
+                    fi, fo, k, k, c, lr, nl, median, bn,
                     mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err,
                     mean_t_conv, mean_ep_conv))
     out.close()
@@ -195,9 +196,9 @@ def test_arch(lr, k, bs, fi, fo, c, nl, bn):
 
 def check_err(param, old_param, err, best_err):
     if err < best_err:
-        return param
+        return param, err
     else:
-        return old_param
+        return old_param, best_err
 
 
 if __name__ == "__main__":

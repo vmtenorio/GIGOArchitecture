@@ -19,7 +19,7 @@ ARCH_INFO = True
 N_CPUS = cpu_count()
 
 # Parameters
-arch_type = "basic" # basic, mlp, conv, linear
+arch_type = "linear" # basic, mlp, conv, linear
 
 # Data parameters
 N_samples = 10000
@@ -53,7 +53,7 @@ median = True
 
 # NN Parameters
 if arch_type == "basic":
-    F = [1,int(N/2),N]
+    F = [1,int(N/8),int(N/4)]
     M = [N*F[-1],2*N,N]
     K = 2
 elif arch_type == "conv":

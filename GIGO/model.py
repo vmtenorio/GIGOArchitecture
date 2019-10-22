@@ -94,6 +94,9 @@ class Model:
                 if self.tb_log:
                     self.writer.add_scalar('perf/accuracy', acc, i)
                     self.writer.add_scalar('perf/loss', loss.item(), i)
+                    
+            if i == self.num_epochs:
+                self.epochs_conv = self.num_epochs
 
         self.t_conv = time.time() - t_init      # Time until convergence
         # Taking the best architecture from early stopping
