@@ -19,146 +19,85 @@ VERBOSE = False
 SAVE = True
 SAVE_PATH = './results/n_params'
 EVAL_F = 5
-P_N = [0]
+P_N = [0, 0.05]
 
-EXPS = [
-        # {'type': 'WEI',  # Constant
-        #  'f_enc': [1, 5, 5, 5, 5],
-        #  'n_enc': [64, 32, 16, 8, 4],
-        #  'f_dec': [5, 5, 5, 5, 5],
-        #  'n_dec': [4, 8, 16, 32, 64],
-        #  'f_conv': [5, 5, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI},
-        # {'type': 'BIN',  # Constant
-        #  'f_enc': [1, 5, 5, 5, 5],
-        #  'n_enc': [64, 32, 16, 8, 4],
-        #  'f_dec': [5, 5, 5, 5, 5],
-        #  'n_dec': [4, 8, 16, 32, 64],
-        #  'f_conv': [5, 5, 1],
-        #  'ups': gc.BIN,
-        #  'downs': gc.BIN},
-        # {'type': 'BIN',  # Constant
-        #  'f_enc': [1, 5, 5, 5, 5],
-        #  'n_enc': [64, 32, 16, 8, 4],
-        #  'f_dec': [5, 5, 5, 5, 5],
-        #  'n_dec': [4, 8, 16, 32, 64],
-        #  'f_conv': [5, 5, 1],
-        #  'ups': gc.NO_A,
-        #  'downs': gc.NO_A},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 5, 5, 5],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 64],
+# # Graphs with 64 nodes
+# EXPS = [
+#         # {'type': 'Constant',  # 230 params
+#         #  'f_enc': [1, 5, 5, 5],
+#         #  'n_enc': [64, 16, 8, 4],
+#         #  'f_dec': [5, 5, 5, 5],
+#         #  'n_dec': [4, 8, 16, 64],
+#         #  'f_conv': [5, 5, 1],
+#         #  'ups': gc.WEI,
+#         #  'downs': gc.WEI},
+#         {'type': 'Constant',  # 132 params
+#          'f_enc': [1, 3, 3, 3, 3],
+#          'n_enc': [64, 32, 16, 8, 4],
+#          'f_dec': [3, 3, 3, 3, 3],
+#          'n_dec': [4, 8, 16, 32, 64],
+#          'f_conv': [3, 3, 1],
+#          'ups': gc.WEI,
+#          'downs': gc.WEI},
+#         {'type': 'Constant',  # 102 params
+#          'f_enc': [1, 3, 3, 3],
+#          'n_enc': [64, 16, 8, 4],
+#          'f_dec': [3, 3, 3, 3],
+#          'n_dec': [4, 8, 16, 64],
+#          'f_conv': [3, 3, 1],
+#          'ups': gc.WEI,
+#          'downs': gc.WEI},
+#         # {'type': 'Constant',  # Constant
+#         #  'f_enc': [1, 2, 2, 2],
+#         #  'n_enc': [64, 16, 8, 4],
+#         #  'f_dec': [2, 2, 2, 2],
+#         #  'n_dec': [4, 8, 16, 64],
+#         #  'f_conv': [2, 2, 1],
+#         #  'ups': gc.WEI,
+#         #  'downs': gc.WEI}
+#         ]
+
+# Graphs with 256 nodes
+EXPS = [{'type': 'HalfResizing',  # HalfResizing
+         'f_enc': [1, 10, 10, 10],
+         'n_enc': [256, 64, 16, 4],
+         'f_dec': [10, 10, 10, 10],
+         'n_dec': [4, 16, 64, 256],
+         'f_conv': [10, 10, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'Original',  # Original
+         'f_enc': [1, 5, 5, 8, 10, 10],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [10, 10, 8, 5, 5, 5, 5],
+         'n_dec': [4, 8, 16, 32, 64, 128, 256],
+         'f_conv': [5, 5, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'Original',  # Original
+         'f_enc': [1, 5, 5, 7, 7, 10],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [10, 7, 7, 5, 5, 5, 5],
+         'n_dec': [4, 8, 16, 32, 64, 128, 256],
          'f_conv': [5, 5, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
         {'type': 'Constant',  # Constant
-         'f_enc': [1, 5, 5, 5],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 64],
+         'f_enc': [1, 5, 7, 10],
+         'n_enc': [256, 64, 16, 4],
+         'f_dec': [10, 7, 5, 5],
+         'n_dec': [4, 16, 64, 256],
          'f_conv': [5, 5, 1],
-         'ups': gc.BIN,
-         'downs': gc.BIN},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 5, 5, 5],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 64],
-         'f_conv': [5, 5, 1],
-         'ups': gc.NO_A,
-         'downs': gc.NO_A},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
-         'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
+        {'type': 'HalfWeigths',  # HalfWeigths
+         'f_enc': [1, 5, 5, 5, 5, 5],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [5, 5, 5, 5, 5, 3],
+         'n_dec': [4, 8, 16, 32, 64, 256],
          'f_conv': [3, 3, 1],
-         'ups': gc.BIN,
-         'downs': gc.BIN},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
-         'f_conv': [3, 3, 1],
-         'ups': gc.NO_A,
-         'downs': gc.NO_A},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 3, 3, 3],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 64],
-         'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'Constant',  # Constant
-         'f_enc': [1, 2, 2, 2],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [2, 2, 2, 2],
-         'n_dec': [4, 8, 16, 64],
-         'f_conv': [2, 2, 1],
          'ups': gc.WEI,
          'downs': gc.WEI}]
-
-# EXPS = [{'type': 'DoubleWeigths',  # DoubleWeigths
-#          'f_enc': [1, 10, 10, 20, 20, 30, 30],
-#          'n_enc': [256, 128, 64, 32, 16, 8, 4],
-#          'f_dec': [30, 30, 20, 20, 10, 10, 10],
-#          'n_dec': [4, 8, 16, 32, 64, 128, 256],
-#          'f_conv': [10, 10, 1],
-#          'ups': gc.WEI,
-#          'downs': gc.WEI},
-#         {'type': 'HalfLayers',  # HalfLayers
-#          'f_enc': [1, 10, 15, 25],
-#          'n_enc': [256, 64, 16, 4],
-#          'f_dec': [25, 15, 10, 10],
-#          'n_dec': [4, 16, 64, 256],
-#          'f_conv': [10, 10, 1],
-#          'ups': gc.WEI,
-#          'downs': gc.WEI},
-#         {'type': 'Original',  # Original
-#          'f_enc': [1, 5, 5, 10, 10, 15, 15],
-#          'n_enc': [256, 128, 64, 32, 16, 8, 4],
-#          'f_dec': [15, 15, 10, 10, 5, 5, 5],
-#          'n_dec': [4, 8, 16, 32, 64, 128, 256],
-#          'f_conv': [5, 5, 1],
-#          'ups': gc.WEI,
-#          'downs': gc.WEI},
-#         {'type': 'HalfResizing',  # HalfResizing
-#          'f_enc': [1, 5, 5, 10, 10, 15, 15],
-#          'n_enc': [256, 64, 64, 16, 16, 4, 4],
-#          'f_dec': [15, 15, 10, 10, 5, 5, 5],
-#          'n_dec': [4, 4, 16, 16, 64, 64, 256],
-#          'f_conv': [5, 5, 1],
-#          'ups': gc.WEI,
-#          'downs': gc.WEI},
-#         {'type': 'Constant',  # Constant
-#          'f_enc': [1, 10, 10, 10],
-#          'n_enc': [256, 64, 16, 4],
-#          'f_dec': [10, 10, 10, 10],
-#          'n_dec': [4, 16, 64, 256],
-#          'f_conv': [10, 10, 1],
-#          'ups': gc.WEI,
-#          'downs': gc.WEI},
-#         {'type': 'HalfWeigths',  # HalfWeigths
-#          'f_enc': [1, 5, 10, 15],
-#          'n_enc': [256, 64, 16, 4],
-#          'f_dec': [15, 10, 5, 5],
-#          'n_dec': [4, 16, 64, 256],
-#          'f_conv': [5, 5, 1],
-#          'ups': gc.WEI,
-#          'downs': gc.WEI}]
 
 N_EXPS = len(EXPS)
 
@@ -168,7 +107,8 @@ def run(id, Gs, signals, lrn, p_n):
                                    Gs['pct_val'][1], pct=Gs['pct'],
                                    seed=SEED)
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
-                          signals['deltas'], median=signals['median'])
+                          signals['deltas'], median=signals['median'],
+                          same_coeffs=signals['same_coeffs'])
     # data = ds.NonLinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
     #                          signals['deltas'], median=signals['median'],
     #                          same_coeffs=signals['same_coeffs'])
@@ -215,22 +155,29 @@ if __name__ == '__main__':
     # Graphs parameters
     Gs = {}
     Gs['n_graphs'] = 25
-    # G_params = {}
-    # G_params['type'] = ds.SBM  # SBM or ER
-    # G_params['N'] = N = 256
-    # G_params['k'] = k = 4
-    # G_params['p'] = 0.2
-    # G_params['q'] = 0.015/4
 
+    # Graph with 256 nodes
     G_params = {}
     G_params['type'] = ds.SBM
-    G_params['N'] = N = 64
+    G_params['N'] = N = 256
     G_params['k'] = k = 4
-    G_params['p'] = [0.6, 0.7, 0.6, 0.8]
-    G_params['q'] = [[0, 0.05, 0.01, 0.0],
-                     [0.05, 0, 0.01, 0.05],
-                     [0.01, 0.01, 0, 0.05],
-                     [0, 0.05, 0.05, 0]]
+    G_params['p'] = 0.20
+    G_params['q'] = [[0, 0.0075, 0, 0.0],
+                     [0.0075, 0, 0.004, 0.0025],
+                     [0, 0.004, 0, 0.005],
+                     [0, 0.0025, 0.005, 0]]
+
+    # Graph with 64 nodes
+    # G_params = {}
+    # G_params['type'] = ds.SBM
+    # G_params['N'] = N = 64
+    # G_params['k'] = k = 4
+    # G_params['p'] = [0.6, 0.7, 0.6, 0.8]
+    # G_params['q'] = [[0, 0.05, 0.01, 0.0],
+    #                  [0.05, 0, 0.01, 0.05],
+    #                  [0.01, 0.01, 0, 0.05],
+    #                  [0, 0.05, 0.05, 0]]
+
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
     Gs['pct'] = True
@@ -239,7 +186,7 @@ if __name__ == '__main__':
     # Signals
     signals = {}
     signals['L'] = 6
-    signals['samples'] = [2000, 500, 500]
+    signals['samples'] = [2000, 1000, 1000]
     signals['deltas'] = k
     signals['noise'] = P_N
     signals['median'] = True

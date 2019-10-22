@@ -16,12 +16,29 @@ from graph_enc_dec import utils
 SEED = 15
 N_CPUS = cpu_count()
 VERBOSE = False
-SAVE = True
+SAVE = False
 SAVE_PATH = './results/diff_models'
 EVAL_F = 5
 P_N = [0, .05]  # [0, .05, .1]
 
 EXPS = [{'type': 'Linear', 'N': 64},
+        {'type': 'Enc_Dec',  # Constant
+         'f_enc': [1, 4, 5, 5],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [5, 5, 4, 4],
+         'n_dec': [4, 8, 16, 64],
+         'f_conv': [4, 4, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'AutoConv',
+         'f_enc': [1, 2, 2, 3, 3],
+         'kernel_enc': 5,
+         'f_dec': [3, 3, 2, 2, 1],
+         'kernel_dec': 5},
+        {'type': 'AutoFC',
+         'n_enc': [64, 1],
+         'n_dec': [1, 64],
+         'bias': True},
         {'type': 'Enc_Dec',  # Constant
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64, 32, 16, 8, 4],
@@ -30,39 +47,31 @@ EXPS = [{'type': 'Linear', 'N': 64},
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'Enc_Dec',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
+        {'type': 'Enc_Dec',  # 102 params
+         'f_enc': [1, 3, 3, 3],
+         'n_enc': [64, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 64],
          'f_conv': [3, 3, 1],
-         'ups': gc.BIN,
-         'downs': gc.BIN},
-        {'type': 'Enc_Dec',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
-         'f_conv': [3, 3, 1],
-         'ups': gc.NO_A,
-         'downs': gc.NO_A},
-        {'type': 'Enc_Dec',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64]*5,
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [64]*5,
-         'f_conv': [3, 3, 1],
-         'ups': None,
-         'downs': None},
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        # {'type': 'Enc_Dec',  # Constant
+        #  'f_enc': [1, 3, 3, 3, 3],
+        #  'n_enc': [64]*5,
+        #  'f_dec': [3, 3, 3, 3, 3],
+        #  'n_dec': [64]*5,
+        #  'f_conv': [3, 3, 1],
+        #  'ups': None,
+        #  'downs': None},
         {'type': 'AutoConv',
-         'f_enc': [1, 3, 3, 4],
-         'kernel_enc': 3,
-         'f_dec': [4, 3, 3, 1],
-         'kernel_dec': 3},
+         'f_enc': [1, 2, 2, 2, 2],
+         'kernel_enc': 5,
+         'f_dec': [2, 2, 2, 2, 1],
+         'kernel_dec': 5},
         {'type': 'AutoFC',
          'n_enc': [64, 1],
          'n_dec': [1, 64],
-         'bias': True}]
+         'bias': False}]
 
 N_EXPS = len(EXPS)
 
@@ -76,10 +85,11 @@ def run(id, Gs, signals, lrn, p_n):
                           same_coeffs=signals['same_coeffs'])
     data.to_unit_norm()
     median_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
-    print('Signal {}: distance {}'.format(id, median_dist))
     data.add_noise(p_n, test_only=signals['test_only'])
+    print('Signal {}: distance {}'.format(id, median_dist))
     data.to_tensor()
 
+    epochs = 0
     mean_err = np.zeros(N_EXPS)
     med_err = np.zeros(N_EXPS)
     mse = np.zeros(N_EXPS)
@@ -126,7 +136,7 @@ if __name__ == '__main__':
 
     # Graphs parameters
     Gs = {}
-    Gs['n_graphs'] = 25
+    Gs['n_graphs'] = 15
     G_params = {}
     G_params['type'] = ds.SBM
     G_params['N'] = N = 64
@@ -144,7 +154,7 @@ if __name__ == '__main__':
     # Signals
     signals = {}
     signals['L'] = 6
-    signals['samples'] = [2000, 500, 500]
+    signals['samples'] = [1000, 500, 500]
     signals['deltas'] = k
     signals['noise'] = P_N
     signals['median'] = True

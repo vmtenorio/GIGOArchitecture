@@ -23,20 +23,20 @@ EVAL_F = 1
 
 EXPS = [{'type': 'Enc_Dec',  # 132
          'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
-         'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'Enc_Dec',  # 132
-         'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64]*5,
          'f_dec': [3, 3, 3, 3, 3],
          'n_dec': [64]*5,
          'f_conv': [3, 3, 1],
          'ups': None,
          'downs': None},
+        {'type': 'Enc_Dec',  # 132
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
         {'type': 'AutoConv',  # 140
          'f_enc': [1, 2, 2, 2, 2],
          'kernel_enc': 5,

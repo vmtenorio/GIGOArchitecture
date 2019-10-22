@@ -180,7 +180,7 @@ if __name__ == '__main__':
     G_params['type'] = ds.SBM
     G_params['N'] = N = 64
     G_params['k'] = k = 4
-    G_params['p'] = [0.6, 0.7, 0.6, 0.8]
+    G_params['p'] = [0.7, 0.8, 0.7, 0.8]
     G_params['q'] = [[0, 0.05, 0.01, 0.0],
                      [0.05, 0, 0.01, 0.05],
                      [0.01, 0.01, 0, 0.05],
@@ -192,9 +192,9 @@ if __name__ == '__main__':
     # Signals
     signals = {}
     signals['L'] = 6
-    signals['samples'] = [2000, 500, 500]
+    signals['samples'] = [2000, 1000, 1000]
     signals['deltas'] = k
-    signals['noise'] = 0
+    signals['noise'] = 0.05
     signals['median'] = True
     signals['same_coeffs'] = False
     signals['test_only'] = True
