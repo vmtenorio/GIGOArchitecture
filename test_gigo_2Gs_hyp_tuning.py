@@ -15,8 +15,8 @@ from multiprocessing import Pool, cpu_count
 from time import time
 
 TB_LOG = False
-VERB = True
-ARCH_INFO = True
+VERB = False
+ARCH_INFO = False
 N_CPUS = cpu_count()
 
 # Parameters
@@ -53,11 +53,25 @@ median = True
 
 loss_func = nn.MSELoss()
 
+# NN Parameters
+K = 2
+Fi = [1,int(N/2),N]
+Fo = [N,int(N/2),int(N/4)]
+C = [Fo[-1],int(N/4),1]
+nonlin_s = "relu"
+if nonlin_s == "relu":
+    nonlin = nn.ReLU
+elif nonlin_s == "tanh":
+    nonlin = nn.Tanh
+elif nonlin_s == "sigmoid":
+    nonlin = nn.Sigmoid
+batch_norm = True
+learning_rate = 0.01
+
 optimizer = "ADAM"
 beta1 = 0.9
 beta2 = 0.999
 decay_rate = 0.99
-nonlin = nn.Tanh
 
 model_param = {}
 
@@ -74,23 +88,27 @@ model_param['verb'] = VERB
 
 # Hyperparameters tuning
 
-learning_rate = [0.05]
+learning_rate_list = [0.05,0.01,0.1]
 
-F = [[1, int(N/2), N],
+F_list = [[1, int(N/2), N],
     [1, N],
     [1, int(N/4), int(N/2), N],
     [1, int(N/4), N]]
 
-K = [2,3,4]
+K_list = [2,3,4]
 
-batch_size = [100, 200]
+batch_size_list = [100, 200]
 
-C = [[int(N/2),int(N/4),1],
-    []]
+C_list = [[int(N/2),int(N/4),1],
+    [int(N/2),1],
+    [int(N/2),int(N/2),int(N/4),1]]
 
-median = [True, False]
+nonlin_list = [nn.Tanh, nn.Sigmoid, nn.ReLU]
 
-def run_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
+batch_norm_list = [True, False]
+
+def run_arch(model_param, Fi, Fo, Ki, Ko, C, nl, bn):
+    global G_params
     Gx, Gy = data_sets.perturbated_graphs(G_params, eps1, eps2)
 
     # Define the data model
@@ -100,7 +118,7 @@ def run_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
     Gx.compute_laplacian('normalized')
     Gy.compute_laplacian('normalized')
 
-    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, nonlin)
+    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, C, nl, bn, ARCH_INFO)
 
     model_param['arch'] = archit
 
@@ -109,31 +127,34 @@ def run_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
 
     return mse_loss, mean_norm_err, archit.n_params, model.t_conv, model.epochs_conv
 
-def test_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
-
-    G_params['N'] = n
-    G_params['k'] = comm
+def test_arch(lr, k, bs, fi, fo, c, nl, bn):
 
     model_param['learning_rate'] = lr
     model_param['batch_size'] = bs
-    print("Testing: N = {}, c = {}, F = {}, K = {}, BS = {}, LR = {}, Median = {}".format(\
-            n, comm, f, k, bs, lr, m))
-
-    t_init = time()
-    mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err = test_arch(G_params, model_param, m, f, fo, k, k)
-    t_spent = time() - t_init
+    print("Testing: F = {}, K = {}, C = {}, BS = {}, LR = {}, Nonlin = {}".format(\
+            fi, k, c, bs, lr, nl))
 
     pool = Pool(processes=N_CPUS)
+
+    if nl == "relu":
+        nonlin = nn.ReLU
+    elif nl == "tanh":
+        nonlin = nn.Tanh
+    elif nl == "sigmoid":
+        nonlin = nn.Sigmoid
 
     results = []
     for ng in range(N_graphs):
         results.append(pool.apply_async(run_arch,\
-                        args=[G_params, model_param, median, Fi, Fo, Ki, Ko]))
+                        args=[model_param, fi, fo, k, k, c, nonlin, bn]))
 
     mean_norm_errs = np.zeros(N_graphs)
     mse_losses = np.zeros(N_graphs)
+    t_conv = np.zeros(N_graphs)
+    epochs_conv = np.zeros(N_graphs)
     for ng in range(N_graphs):
-        mse_losses[ng], mean_norm_errs[ng]  = results[ng].get()
+        # No problem in overriding n_params, as it has always the same value
+        mse_losses[ng], mean_norm_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
 
     mse_loss = np.mean(mse_losses)
     mean_norm_err = np.mean(mean_norm_errs)
@@ -142,44 +163,77 @@ def test_arch(G_params, model_param, median, Fi, Fo, Ki, Ko):
     mean_t_conv = round(np.mean(t_conv), 6)
     mean_ep_conv = np.mean(epochs_conv)
 
-    print("Results: MSE loss = {}, Mean Norm Err = {}, Median Norm Err = {}, STD Norm Err = {}, Time = {}, Epochs = {}".format(\
-            mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err, mean_t_conv, mean_ep_conv))
+    print("--------------------------------------Ended simulation--------------------------------------")
+    print("2G difussed deltas architecture parameters")
+    print("Graph: N = {}; k = {}".format(str(N), str(k)))
+    print("Fin: {}, Fout: {}, Kin: {}, Kout: {}, C: {}".format(fi, fo, k, k, c))
+    print("Non lin: " + str(nl))
+    print("N params: " + str(n_params))
+    #print("MSE loss = {}".format(str(mse_losses)))
+    print("MSE loss mean = {}".format(mse_loss))
+    #print("Mean Squared Error = {}".format(str(mean_norm_errs)))
+    print("Mean Norm Error = {}".format(mean_norm_err))
+    print("Median error = {}".format(median_mean_norm_err))
+    print("STD = {}".format(std_mean_norm_err))
+    print("Until convergence: Time = {} - Epochs = {}".format(mean_t_conv, mean_ep_conv))
 
     if not os.path.isfile('./out_hyp.csv'):
         out = open('out_hyp.csv', 'w')
         out.write('Nodes|Communities|N samples|Batch size|' +
-                    'F in|F out|K in|K out|C|Learning Rate|Non Lin|Median|' +
+                    'F in|F out|K in|K out|C|Learning Rate|Non Lin|Median|Batch norm|' +
                     'MSE loss|Mean norm err|Median mean norm err|STD mean norm err|' +
                     'Mean t convergence|Mean epochs convergence\n')
     else:
         out = open('out_hyp.csv', 'a')
-    out.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+    out.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
                     N, k, N_samples, batch_size,
-                    Fi, Fo, Ki, Ko, C, learning_rate, nonlin_s, median,
+                    fi, fo, k, k, c, lr, nl, median, bn,
                     mse_loss, mean_norm_err, median_mean_norm_err, std_mean_norm_err,
                     mean_t_conv, mean_ep_conv))
     out.close()
 
-    # print("--------------------------------------Ended simulation--------------------------------------")
-    # print("2G difussed deltas architecture parameters")
-    # print("Graph: N = {}; c = {}".format(str(N), str(c)))
-    # print("Neural net: Fi = {}, Fo = {}, Ki = {}, Ko = {}".format(str(Fi), str(Fo), str(Ki), str(Ko)))
-    # #print("MSE loss = {}".format(str(mse_losses)))
-    # print("MSE loss mean = {}".format(np.mean(mse_losses)))
-    # #print("Mean Squared Error = {}".format(str(mean_norm_errs)))
-    # print("Mean Norm Error = {}".format(np.mean(mean_norm_errs)))
-    # print("Median error = {}".format(np.median(mean_norm_errs)))
-    # print("STD = {}".format(np.std(mean_norm_errs)))
-    return np.mean(mse_losses), np.mean(mean_norm_errs), np.median(mean_norm_errs), np.std(mean_norm_errs)
+    return np.median(mean_norm_errs)        # Keeping the one with the best median error
+
+def check_err(param, old_param, err, best_err):
+    if err < best_err:
+        return param, err
+    else:
+        return old_param, best_err
 
 
 if __name__ == "__main__":
-    for lr in learning_rate:
-    for k in K:
-    for bs in batch_size:
-    for f in F:
+    best_err = 1000000
+    for lr in learning_rate_list:
+        err = test_arch(lr, K, batch_size, Fi, Fo, C, nonlin_s, batch_norm)
+        learning_rate, best_err = check_err(lr, learning_rate, err, best_err)
+    best_err = 1000000
+    for k in K_list:
+        err = test_arch(learning_rate, k, batch_size, Fi, Fo, C, nonlin_s, batch_norm)
+        K, best_err = check_err(k, K, err, best_err)
+    best_err = 1000000
+    for bs in batch_size_list:
+        err = test_arch(learning_rate, K, bs, Fi, Fo, C, nonlin_s, batch_norm)
+        batch_size, best_err = check_err(bs, batch_size, err, best_err)
+    best_err = 1000000
+    for f in F_list:
         fo = f.copy()
-        fo[0] = N/2
+        fo[0] = int(N/2)
         fo.reverse()
-    for comm in c:
-    for m in median:
+        fi = f
+        err = test_arch(learning_rate, K, batch_size, fi, fo, C, nonlin_s, batch_norm)
+        Fi, best_err = check_err(fi, Fi, err, best_err)
+        Fo = Fi.copy()
+        Fo[0] = int(N/2)
+        Fo.reverse()
+    best_err = 1000000
+    for c in C_list:
+        err = test_arch(learning_rate, K, batch_size, Fi, Fo, c, nonlin_s, batch_norm)
+        C, best_err = check_err(c, C, err, best_err)
+    best_err = 1000000
+    for nl in nonlin_list:
+        err = test_arch(learning_rate, K, batch_size, Fi, Fo, C, nl, batch_norm)
+        nonlin_s, best_err = check_err(nl, nonlin_s, err, best_err)
+    best_err = 1000000
+    for bn in batch_norm_list:
+        err = test_arch(learning_rate, K, batch_size, Fi, Fo, C, nonlin_s, bn)
+        batch_norm, best_err = check_err(bn, batch_norm, err, best_err)

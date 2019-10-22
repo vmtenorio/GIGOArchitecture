@@ -22,7 +22,7 @@ N_CPUS = cpu_count()
 # Data parameters
 N_samples = 5000
 eval_freq = 4
-N_graphs = 8
+N_graphs = 6
 
 L_filter = 6
 
