@@ -9,6 +9,7 @@ sys.path.insert(0, '.\graph_enc_dec')
 from graph_enc_dec import data_sets as ds
 from graph_enc_dec import graph_clustering as gc
 from graph_enc_dec.architecture import GraphEncoderDecoder, GraphDownsampling, GraphUpsampling
+from graph_enc_dec.model import Model
 
 SEED = 15
 
@@ -32,7 +33,8 @@ class PerturbatedGraphsTest(unittest.TestCase):
         print('Link y:', Gy.Ne)
         self.assertEqual(1664, Gx.Ne)
         self.assertEqual(1672, Gy.Ne)
-        self.assertAlmostEqual(0.1935096153846, np.sum(Gx.A != Gy.A)/2/Gx.Ne)
+        print('Diff links:', np.sum(Gx.A != Gy.A)/2/Gx.Ne)
+        self.assertAlmostEqual(0.19471153846153846, np.sum(Gx.A != Gy.A)/2/Gx.Ne)
 
     def test_probability_perturbation(self):
         create = 0.0005
@@ -102,11 +104,14 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         data.to_unit_norm()
         self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
 
     # TODO: check if deltas are in the comms
     def test_S_SBM(self):
@@ -116,20 +121,26 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
 
         n_delts = self.G_params['k']*2+3
         data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
 
     def test_state_dict(self):
         n_samps = [100, 50, 50]
@@ -138,18 +149,18 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         # Test saving state
         data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         state = data.state_dict()
-        self.assertTrue(np.array_equal(data.train_S, state['train_S']))
-        self.assertTrue(np.array_equal(data.val_S, state['val_S']))
-        self.assertTrue(np.array_equal(data.test_S, state['test_S']))
+        self.assertTrue(np.array_equal(data.train_Sx, state['train_Sx']))
+        self.assertTrue(np.array_equal(data.val_Sy, state['val_Sy']))
+        self.assertTrue(np.array_equal(data.test_Sy, state['test_Sy']))
         self.assertTrue(np.array_equal(data.hx, state['hx']))
         self.assertTrue(np.array_equal(data.hy, state['hy']))
         self.assertEqual(data.median, state['median'])
 
         # Test loading state
         data2 = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
-        self.assertFalse(np.array_equal(data2.train_S, data.train_S))
-        self.assertFalse(np.array_equal(data2.val_S, data.val_S))
-        self.assertFalse(np.array_equal(data2.test_S, data.test_S))
+        self.assertFalse(np.array_equal(data2.train_Sx, data.train_Sx))
+        self.assertFalse(np.array_equal(data2.val_Sx, data.val_Sx))
+        self.assertFalse(np.array_equal(data2.test_Sx, data.test_Sx))
         self.assertFalse(np.array_equal(data2.train_X, data.train_X))
         self.assertFalse(np.array_equal(data2.val_X, data.val_X))
         self.assertFalse(np.array_equal(data2.test_X, data.test_X))
@@ -465,11 +476,11 @@ class GraphUpsamplingTest(unittest.TestCase):
         G_params['q'] = 0.01/4
         G_params['type_z'] = ds.RAND
         G = ds.create_graph(G_params, seed=SEED)
-        nodes_enc = [4,16,32,64,256]
+        nodes_dec = [4,16,32,64,256]
         ups = gc.WEI
-        self.N = nodes_enc[-1]
-        self.k = nodes_enc[0]
-        self.cluster = gc.MultiResGraphClustering(G, nodes_enc, k=4, up_method=ups)
+        self.N = nodes_dec[-1]
+        self.k = nodes_dec[0]
+        self.cluster = gc.MultiResGraphClustering(G, nodes_dec, k=4, up_method=ups)
         self.model = Sequential()
         for i,U in enumerate(self.cluster.Us):
             self.add_layer(GraphUpsampling(U, self.cluster.As[i+1],gamma=1))
@@ -536,7 +547,6 @@ class GraphUpsamplingTest(unittest.TestCase):
             input[i,:,:] = Tensor(input_aux)
         result = self.model(input)
         self.assertTrue(result.equal(expected_result))
-
 
 if __name__ == "__main__":
     unittest.main()

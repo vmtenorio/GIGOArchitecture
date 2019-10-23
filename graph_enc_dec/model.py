@@ -91,12 +91,12 @@ class Model:
 
     def print_model_state_sizes(self):
         for params in self.arch.state_dict():
-            print(params, "\t", self.arch.state_dict()[params].size())
+            print(params, "\t", self.arch.state_dict()[params].requires_grad)
 
     def test(self, test_X, test_Y):
         self.arch.eval()
         # Ignoring dim[1] with only one channel
-        shape = [test_X.shape[0], test_X.shape[2]]
+        shape = [test_Y.shape[0], test_Y.shape[2]]
 
         # Error for each node
         Y = test_Y.view(shape)
@@ -137,11 +137,12 @@ class LinearModel:
         print('Beta\t', self.Beta.size())
 
     def test(self, test_X, test_Y):
-        shape = [test_X.shape[0], test_X.shape[2]]
-        X = test_X.view(shape).detach().numpy()
-        Y = test_Y.view(shape).detach().numpy()
+        shape_Y = [test_Y.shape[0], test_Y.shape[2]]
+        shape_X = [test_X.shape[0], test_X.shape[2]]
+        X = test_X.view(shape_X).detach().numpy()
+        Y = test_Y.view(shape_Y).detach().numpy()
         Y_hat = X.dot(self.Beta)
 
-        mse = self.loss(Tensor(Y_hat), test_Y.view(shape))
+        mse = self.loss(Tensor(Y_hat), test_Y.view(shape_Y))
         err = np.sum((Y_hat-Y)**2, axis=1)/np.linalg.norm(Y, axis=1)**2
         return np.mean(err), np.median(err), mse.detach().numpy()

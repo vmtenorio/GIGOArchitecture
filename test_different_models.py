@@ -16,77 +16,118 @@ from graph_enc_dec import utils
 SEED = 15
 N_CPUS = cpu_count()
 VERBOSE = False
-SAVE = False
+SAVE = True
 SAVE_PATH = './results/diff_models'
 EVAL_F = 5
-P_N = [0, .05]  # [0, .05, .1]
+P_N = [0, 0.05]  # [0, .05, .1]
 
-EXPS = [{'type': 'Linear', 'N': 64},
-        {'type': 'Enc_Dec',  # Constant
-         'f_enc': [1, 4, 5, 5],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [5, 5, 4, 4],
-         'n_dec': [4, 8, 16, 64],
-         'f_conv': [4, 4, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'AutoConv',
-         'f_enc': [1, 2, 2, 3, 3],
-         'kernel_enc': 5,
-         'f_dec': [3, 3, 2, 2, 1],
-         'kernel_dec': 5},
-        {'type': 'AutoFC',
-         'n_enc': [64, 1],
-         'n_dec': [1, 64],
+# Same size
+# Con las nuevas señales más complejas gana nuestro modelo --> probar en pert señales!
+# EXPS = [{'type': 'AutoFC',
+#          'n_enc': [256, 1],
+#          'n_dec': [1, 256],
+#          'bias': True},
+#         {'type': 'Enc_Dec',  # Original
+#          'f_enc': [1, 5, 5, 5, 5, 5, 5],
+#          'n_enc': [256, 128, 64, 32, 16, 8, 4],
+#          'f_dec': [5, 5, 5, 5, 5, 5, 5],
+#          'n_dec': [4, 8, 16, 32, 64, 128, 256],
+#          'f_conv': [5, 5, 1],
+#          'ups': gc.WEI,
+#          'downs': gc.WEI},
+#         {'type': 'AutoConv',
+#          'f_enc': [1, 2, 3, 5],
+#          'kernel_enc': 10,
+#          'f_dec': [5, 3, 2, 1],
+#          'kernel_dec': 10},
+#         {'type': 'Enc_Dec',  # HalfWeigths
+#          'f_enc': [1, 3, 5, 5, 5, 5],
+#          'n_enc': [256, 128, 64, 16, 8, 4],
+#          'f_dec': [5, 5, 5, 5, 3, 3],
+#          'n_dec': [4, 8, 16, 64, 128, 256],
+#          'f_conv': [3, 3, 1],
+#          'ups': gc.WEI,
+#          'downs': gc.WEI},
+#         {'type': 'AutoConv',
+#          'f_enc': [1, 2, 2, 4],
+#          'kernel_enc': 10,
+#          'f_dec': [4, 2, 2, 1],
+#          'kernel_dec': 10},
+#         {'type': 'Enc_Dec',  # HalfWeigths
+#          'f_enc': [1, 3, 3, 3, 3],
+#          'n_enc': [256, 64, 16, 8, 4],
+#          'f_dec': [3, 3, 3, 3, 3],
+#          'n_dec': [4, 8, 16, 64, 256],
+#          'f_conv': [3, 3, 1],
+#          'ups': gc.WEI,
+#          'downs': gc.WEI},
+#         {'type': 'AutoConv',
+#          'f_enc': [1, 2, 2, 2],
+#          'kernel_enc': 7,
+#          'f_dec': [2, 2, 2, 1],
+#          'kernel_dec': 7}]
+
+
+# Different size: 30 nodos menos
+EXPS = [{'type': 'AutoFC',
+         'n_enc': [256, 1],
+         'n_dec': [1, 226],
          'bias': True},
-        {'type': 'Enc_Dec',  # Constant
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64],
-         'f_conv': [3, 3, 1],
+        {'type': 'Enc_Dec',  # Original
+         'f_enc': [1, 5, 5, 5, 5, 5, 5],
+         'n_enc': [256, 128, 64, 32, 16, 8, 4],
+         'f_dec': [5, 5, 5, 5, 5, 5, 5],
+         'n_dec': [4, 8, 16, 32, 64, 128, 226],
+         'f_conv': [5, 5, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'Enc_Dec',  # 102 params
-         'f_enc': [1, 3, 3, 3],
-         'n_enc': [64, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 64],
-         'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        # {'type': 'Enc_Dec',  # Constant
-        #  'f_enc': [1, 3, 3, 3, 3],
-        #  'n_enc': [64]*5,
-        #  'f_dec': [3, 3, 3, 3, 3],
-        #  'n_dec': [64]*5,
-        #  'f_conv': [3, 3, 1],
-        #  'ups': None,
-        #  'downs': None},
         {'type': 'AutoConv',
-         'f_enc': [1, 2, 2, 2, 2],
-         'kernel_enc': 5,
-         'f_dec': [2, 2, 2, 2, 1],
-         'kernel_dec': 5},
-        {'type': 'AutoFC',
-         'n_enc': [64, 1],
-         'n_dec': [1, 64],
-         'bias': False}]
+         'f_enc': [1, 1, 3, 3, 3, 3],
+         'kernel_enc': 11,      # Resulting size: Prev_size - kernel + 1
+         'f_dec': [3, 2, 1],
+         'kernel_dec': 11},
+        {'type': 'Enc_Dec',  # HalfWeigths
+         'f_enc': [1, 3, 5, 5, 5, 5],
+         'n_enc': [256, 128, 64, 16, 8, 4],
+         'f_dec': [5, 5, 5, 5, 3, 3],
+         'n_dec': [4, 8, 16, 64, 128, 226],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'AutoConv',
+         'f_enc': [1, 2, 2, 2, 2, 3],
+         'kernel_enc': 11,
+         'f_dec': [3, 2, 1],
+         'kernel_dec': 11},
+        {'type': 'Enc_Dec',  # HalfWeigths
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [256, 64, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 64, 226],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
+        {'type': 'AutoConv',
+         'f_enc': [1, 1, 1, 1, 1, 2, 2, 2, 2],
+         'kernel_enc': 6,
+         'f_dec': [2, 2, 1],
+         'kernel_dec': 6}]
+
 
 N_EXPS = len(EXPS)
 
 
 def run(id, Gs, signals, lrn, p_n):
-    Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['pct_val'][0],
-                                   Gs['pct_val'][1], pct=Gs['pct'],
-                                   seed=SEED)
+    # Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['pct_val'][0],
+    #                                Gs['pct_val'][1], pct=Gs['pct'],
+    #                                seed=SEED)
+    Gx = ds.create_graph(Gs['params'], seed=SEED)
+    Gy = ds.create_graph(Gs['params_y'], seed=SEED)
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
                           same_coeffs=signals['same_coeffs'])
     data.to_unit_norm()
-    median_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
     data.add_noise(p_n, test_only=signals['test_only'])
-    print('Signal {}: distance {}'.format(id, median_dist))
     data.to_tensor()
 
     epochs = 0
@@ -139,22 +180,44 @@ if __name__ == '__main__':
     Gs['n_graphs'] = 15
     G_params = {}
     G_params['type'] = ds.SBM
-    G_params['N'] = N = 64
+    # G_params['N'] = N = 64
+    # G_params['k'] = k = 4
+    # G_params['p'] = [0.8, 0.7, 0.8, 0.8]
+    # G_params['q'] = [[0, 0.05, 0.01, 0.0],
+    #                  [0.05, 0, 0.01, 0.05],
+    #                  [0.01, 0.01, 0, 0.05],
+    #                  [0, 0.05, 0.05, 0]]
+
+    G_params['N'] = N = 256
     G_params['k'] = k = 4
-    G_params['p'] = [0.6, 0.7, 0.6, 0.8]
-    G_params['q'] = [[0, 0.05, 0.01, 0.0],
-                     [0.05, 0, 0.01, 0.05],
-                     [0.01, 0.01, 0, 0.05],
-                     [0, 0.05, 0.05, 0]]
+    G_params['p'] = 0.25
+    G_params['q'] = [[0, 0.0075, 0, 0.0],
+                     [0.0075, 0, 0.004, 0.0025],
+                     [0, 0.004, 0, 0.005],
+                     [0, 0.0025, 0.005, 0]]
+
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
-    Gs['pct'] = True
-    Gs['pct_val'] = [10, 10]
+
+    G_params_y = {}
+    G_params_y['type'] = ds.SBM
+    G_params_y['N'] = N = 226
+    G_params_y['k'] = k = 4
+    G_params_y['p'] = 0.25
+    G_params_y['q'] = [[0, 0.0075, 0, 0.0],
+                       [0.0075, 0, 0.004, 0.0025],
+                       [0, 0.004, 0, 0.005],
+                       [0, 0.0025, 0.005, 0]]
+    G_params_y['type_z'] = ds.RAND
+    Gs['params_y'] = G_params_y
+
+    # Gs['pct'] = True
+    # Gs['pct_val'] = [10, 10]
 
     # Signals
     signals = {}
     signals['L'] = 6
-    signals['samples'] = [1000, 500, 500]
+    signals['samples'] = [2000, 1000, 1000]
     signals['deltas'] = k
     signals['noise'] = P_N
     signals['median'] = True
