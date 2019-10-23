@@ -87,7 +87,7 @@ class Model:
 
     def load_state_dict(self, state_dict):
         self.arch.load_state_dict(state_dict)
-        self.arch.eval()  # Necessary?
+        self.arch.eval()
 
     def print_model_state_sizes(self):
         for params in self.arch.state_dict():

@@ -191,7 +191,7 @@ class DiffusedSparse2GS:
         """
         Divide each signal by its norm so all samples have unit norm
         """
-        norm = np.sqrt(np.sum(signals**2,axis=1))
+        norm = np.sqrt(np.sum(signals**2, axis=1))
         if 0 in norm:
             print("WARNING: signal with norm 0")
             return None
@@ -262,46 +262,67 @@ class DiffusedSparse2GS:
 
 class LinearDS2GS(DiffusedSparse2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=False, same_coeffs=False):
+                 max_d=1, median=True, same_coeffs=False):
         super(LinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts, min_d,
                                           max_d)
-        self.random_diffusing_filters(L, same_coeffs)
-
-        # Create samples
+        self.median = median
+        self.hx = np.random.rand(L)
+        self.hy = self.hx if same_coeffs else np.random.rand(L)
+        self.random_diffusing_filters()
         self.train_S = self.sparse_S(self.n_train, n_delts, min_d, max_d)
-        self.train_X = self.Hx.dot(self.train_S.T).T
-        self.train_Y = self.Hy.dot(self.train_S.T).T
         self.val_S = self.sparse_S(self.n_val, n_delts, min_d, max_d)
-        self.val_X = self.Hx.dot(self.val_S.T).T
-        self.val_Y = self.Hy.dot(self.val_S.T).T
         self.test_S = self.sparse_S(self.n_test, n_delts, min_d, max_d)
-        self.test_X = self.Hx.dot(self.test_S.T).T
-        self.test_Y = self.Hy.dot(self.test_S.T).T
+        self.create_samples_X_Y()
 
-        if median:
-            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
-            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
-            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
-            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
-            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
-            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
+    def state_dict(self):
+        state = {}
+        state['train_S'] = self.train_S
+        state['val_S'] = self.val_S
+        state['test_S'] = self.test_S
+        state['hx'] = self.hx
+        state['hy'] = self.hy
+        state['median'] = self.median
+        return state
 
-    def random_diffusing_filters(self, L, same_coeffs):
+    def load_state_dict(self, state):
+        self.train_S = state['train_S']
+        self.val_S = state['val_S']
+        self.test_S = state['test_S']
+        self.hx = state['hx']
+        self.hy = state['hy']
+        self.median = state['median']
+        self.random_diffusing_filters()
+        self.create_samples_X_Y()
+
+    def random_diffusing_filters(self):
         """
         Create two lineal random diffusing filters with L random coefficients
         using the graphs shift operators from Gx and Gy.
         Arguments:
             - L: number of filter coeffcients
         """
-        hs_x = np.random.rand(L)
-        hs_y = hs_x if same_coeffs else np.random.rand(L)
         self.Hx = np.zeros(self.Gx.W.shape)
         self.Hy = np.zeros(self.Gy.W.shape)
         Sx = self.Gx.W.todense()
         Sy = self.Gy.W.todense()
-        for l in range(L):
-            self.Hx += hs_x[l]*np.linalg.matrix_power(Sx, l)
-            self.Hy += hs_y[l]*np.linalg.matrix_power(Sy, l)
+        for l in range(self.hx.size):
+            self.Hx += self.hx[l]*np.linalg.matrix_power(Sx, l)
+            self.Hy += self.hy[l]*np.linalg.matrix_power(Sy, l)
+
+    def create_samples_X_Y(self):
+        self.train_X = self.Hx.dot(self.train_S.T).T
+        self.train_Y = self.Hy.dot(self.train_S.T).T
+        self.val_X = self.Hx.dot(self.val_S.T).T
+        self.val_Y = self.Hy.dot(self.val_S.T).T
+        self.test_X = self.Hx.dot(self.test_S.T).T
+        self.test_Y = self.Hy.dot(self.test_S.T).T
+        if self.median:
+            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
+            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
+            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
+            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
+            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
+            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
 
 class NonLinearDS2GS(DiffusedSparse2GS):

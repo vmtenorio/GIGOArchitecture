@@ -87,8 +87,8 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         self.G_params['p'] = 0.7
         self.G_params['q'] = 0.1
         self.G_params['type_z'] = ds.RAND
-        self.eps1 = 0.1
-        self.eps2 = 0.3
+        self.eps1 = 5
+        self.eps2 = 5
         self.Gx, self.Gy = ds.perturbated_graphs(self.G_params, self.eps1,
                                                  self.eps2, seed=SEED)
 
@@ -99,6 +99,7 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         self.G_params['type'] = ds.ER
         Gx, Gy = ds.perturbated_graphs(self.G_params, self.eps1, self.eps2, seed=SEED)
         data = ds.LinearDS2GS(Gx, Gy, n_samps, L, n_delts)
+        data.to_unit_norm()
         self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
@@ -113,7 +114,7 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         L = 6
         n_delts = self.G_params['k']
         data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
-        self.assertFalse(np.array_equal(data.Hx,data.Hy))
+        self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
         for i in range(n_samps[1]):
@@ -129,6 +130,39 @@ class LinearDS2GS2GSTest(unittest.TestCase):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
         for i in range(n_samps[2]):
             self.assertLessEqual(np.sum(data.train_S[i,:][data.train_S[0,:]!=0]), n_delts)
+
+    def test_state_dict(self):
+        n_samps = [100, 50, 50]
+        L = 6
+        n_delts = self.G_params['k']
+        # Test saving state
+        data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        state = data.state_dict()
+        self.assertTrue(np.array_equal(data.train_S, state['train_S']))
+        self.assertTrue(np.array_equal(data.val_S, state['val_S']))
+        self.assertTrue(np.array_equal(data.test_S, state['test_S']))
+        self.assertTrue(np.array_equal(data.hx, state['hx']))
+        self.assertTrue(np.array_equal(data.hy, state['hy']))
+        self.assertEqual(data.median, state['median'])
+
+        # Test loading state
+        data2 = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
+        self.assertFalse(np.array_equal(data2.train_S, data.train_S))
+        self.assertFalse(np.array_equal(data2.val_S, data.val_S))
+        self.assertFalse(np.array_equal(data2.test_S, data.test_S))
+        self.assertFalse(np.array_equal(data2.train_X, data.train_X))
+        self.assertFalse(np.array_equal(data2.val_X, data.val_X))
+        self.assertFalse(np.array_equal(data2.test_X, data.test_X))
+        self.assertFalse(np.array_equal(data2.train_Y, data.train_Y))
+        self.assertFalse(np.array_equal(data2.val_Y, data.val_Y))
+        self.assertFalse(np.array_equal(data2.test_Y, data.test_Y))
+        data2.load_state_dict(state)
+        self.assertTrue(np.array_equal(data2.train_X, data.train_X))
+        self.assertTrue(np.array_equal(data2.val_X, data.val_X))
+        self.assertTrue(np.array_equal(data2.test_X, data.test_X))
+        self.assertTrue(np.array_equal(data2.train_Y, data.train_Y))
+        self.assertTrue(np.array_equal(data2.val_Y, data.val_Y))
+        self.assertTrue(np.array_equal(data2.test_Y, data.test_Y))
 
     def test_to_unit_norm(self):
         n_samps = [50, 20, 20]
