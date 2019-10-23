@@ -14,10 +14,9 @@ from graph_enc_dec import utils
 
 
 SEED = 15
-N_CPUS = cpu_count()
-VERBOSE = True
-SAVE = True
-SAVE_PATH = './results/perturbation'
+VERBOSE = False
+SAVE = False
+SAVE_PATH = './results/diff_graphs'
 EVAL_F = 1
 
 
@@ -41,12 +40,48 @@ EXPS = [{'type': 'Enc_Dec',  # 132
          'f_enc': [1, 2, 2, 2, 2],
          'kernel_enc': 5,
          'f_dec': [2, 2, 2, 2, 1],
-         'kernel_dec': 5}]
+         'kernel_dec': 5},
+        {'type': 'AutoFC',  # 128
+         'n_enc': [64, 1],
+         'n_dec': [1, 64],
+         'bias': True}]
 
 N_EXPS = len(EXPS)
 
 
+def create_model(Gx, Gy, exp, lrn):
+    if exp['type'] == 'Linear':
+        model = LinearModel(exp['N'])
+    elif exp['type'] == 'Enc_Dec':
+        clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
+                                             k=exp['n_enc'][-1],
+                                             up_method=exp['downs'])
+        clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
+                                             k=exp['n_enc'][-1],
+                                             up_method=exp['ups'])
+        net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
+                                  exp['f_dec'], clust_y.sizes, clust_y.Us,
+                                  exp['f_conv'], As_dec=clust_y.As,
+                                  As_enc=clust_x.As, act_fn=lrn['af'],
+                                  last_act_fn=lrn['laf'], ups=exp['ups'],
+                                  downs=exp['downs'])
+    elif exp['type'] == 'AutoConv':
+        net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
+                              exp['f_dec'], exp['kernel_dec'])
+    elif exp['type'] == 'AutoFC':
+        net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
+    else:
+        raise RuntimeError('Unknown experiment type')
+    if exp['type'] != 'Linear':
+        model = Model(net, learning_rate=lrn['lr'], decay_rate=lrn['dr'],
+                      batch_size=lrn['batch'], epochs=lrn['epochs'],
+                      eval_freq=EVAL_F, max_non_dec=lrn['non_dec'],
+                      verbose=VERBOSE)
+    return model
+
+
 def train_models(Gs, signals, lrn):
+    # Create data
     Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['create'], Gs['destroy'],
                                    pct=Gs['pct'], seed=SEED)
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
@@ -54,57 +89,51 @@ def train_models(Gs, signals, lrn):
                           same_coeffs=signals['same_coeffs'])
     data.to_unit_norm()
     data.add_noise(signals['noise'], test_only=signals['test_only'])
+
     sign_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
     print('Distance signals:', sign_dist)
     data.to_tensor()
+    data_state = data.state_dict()
 
-    epochs = np.zeros(N_EXPS)
     med_err = np.zeros(N_EXPS)
+    epochs = np.zeros(N_EXPS)
     mse = np.zeros(N_EXPS)
     models_states = []
     for i, exp in enumerate(EXPS):
-        # Create model
-        if exp['type'] == 'Linear':
-            model = LinearModel(exp['N'])
-        elif exp['type'] == 'Enc_Dec':
-            clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
-                                                 k=exp['n_enc'][-1],
-                                                 up_method=exp['downs'])
-            clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
-                                                 k=exp['n_enc'][-1],
-                                                 up_method=exp['ups'])
-            net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
-                                      exp['f_dec'], clust_y.sizes, clust_y.Us,
-                                      exp['f_conv'], As_dec=clust_y.As,
-                                      As_enc=clust_x.As, act_fn=lrn['af'],
-                                      last_act_fn=lrn['laf'], ups=exp['ups'],
-                                      downs=exp['downs'])
-        elif exp['type'] == 'AutoConv':
-            net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
-                                  exp['f_dec'], exp['kernel_dec'])
-        elif exp['type'] == 'AutoFC':
-            net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
-        else:
-            raise RuntimeError('Unknown experiment type')
-        if exp['type'] != 'Linear':
-            model = Model(net, learning_rate=lrn['lr'], decay_rate=lrn['dr'],
-                          batch_size=lrn['batch'], epochs=lrn['epochs'],
-                          eval_freq=EVAL_F, max_non_dec=lrn['non_dec'],
-                          verbose=VERBOSE)
+        model = create_model(Gx, Gy, exp, lrn)
         # Fit models
         epochs[i], _, _ = model.fit(data.train_X, data.train_Y, data.val_X,
                                     data.val_Y)
         _, med_error, mse_error = model.test(data.test_X, data.test_Y)
         models_states.append(model.state_dict())
-        print('DEBUG: Original Graph {}-{} ({}): mse {} - MedianErr: {}'
+        print('Original Graph {}-{} ({}): mse {} - MedianErr: {}'
               .format(i, exp['type'], model.count_params(),
                       mse_error, med_error))
-
     print()
-    return models_states
+    return data_state, models_states, Gx, Gy
 
 
-def test_other_graphs(Gs, signals, lrn, models_state):
+def test_original_graphs(data_state, models_state, Gx, Gy, signals, lrn):
+    data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
+                          signals['deltas'], median=signals['median'],
+                          same_coeffs=signals['same_coeffs'])
+    data.load_state_dict(data_state, unit_norm=True)
+    data.add_noise(signals['noise'], test_only=signals['test_only'])
+    sign_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
+    print('Distance signals:', sign_dist)
+    data.to_tensor()
+    for i, exp in enumerate(EXPS):
+        model = create_model(Gx, Gy, exp, lrn)
+        model.load_state_dict(models_state[i])
+        _, med_error_train, _ = model.test(data.train_X, data.train_Y)
+        _, med_error_test, _ = model.test(data.test_X, data.test_Y)
+        print('Original (debug) Graph {}-{} ({}): TrainErr {} - TestErr: {}'
+              .format(i, exp['type'], model.count_params(),
+                      med_error_train, med_error_test))
+    print()
+
+
+def test_other_graphs(Gs, signals, lrn, data_state, models_state):
     med_err = np.zeros((Gs['n_graphs'], N_EXPS))
     mse = np.zeros((Gs['n_graphs'], N_EXPS))
     for i in range(Gs['n_graphs']):
@@ -113,43 +142,20 @@ def test_other_graphs(Gs, signals, lrn, models_state):
         data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                               signals['deltas'], median=signals['median'],
                               same_coeffs=signals['same_coeffs'])
-        data.to_unit_norm()
+        data.load_state_dict(data_state, unit_norm=True)
         data.add_noise(signals['noise'], test_only=signals['test_only'])
-        sign_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
+        sign_dist = np.median(np.linalg.norm(data.train_X-data.train_Y,
+                              axis=1))
         print('Distance signals:', sign_dist)
         data.to_tensor()
 
         # Create models
         for j, exp in enumerate(EXPS):
-            if exp['type'] == 'Linear':
-                model = LinearModel(exp['N'])
-            elif exp['type'] == 'Enc_Dec':
-                clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
-                                                    k=exp['n_enc'][-1],
-                                                    up_method=exp['downs'])
-                clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
-                                                    k=exp['n_enc'][-1],
-                                                    up_method=exp['ups'])
-                net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
-                                        exp['f_dec'], clust_y.sizes, clust_y.Us,
-                                        exp['f_conv'], As_dec=clust_y.As,
-                                        As_enc=clust_x.As, act_fn=lrn['af'],
-                                        last_act_fn=lrn['laf'], ups=exp['ups'],
-                                        downs=exp['downs'])
-            elif exp['type'] == 'AutoConv':
-                net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
-                                    exp['f_dec'], exp['kernel_dec'])
-            elif exp['type'] == 'AutoFC':
-                net = FCAutoencoder(exp['n_enc'], exp['n_dec'], bias=exp['bias'])
-            else:
-                raise RuntimeError('Unknown experiment type')
-            if exp['type'] != 'Linear':
-                model = Model(net)
+            model = create_model(Gx, Gy, exp, lrn)
             model.load_state_dict(models_state[j])
             _, med_err[i, j], mse[i, j] = model.test(data.test_X, data.test_Y)
-
-            print('DEBUG: Original Graph {}-{} ({}): mse {} - MedianErr: {}'
-                  .format(i, exp['type'], model.count_params(),
+            print('Graph {}: {}-{} ({}): mse {} - MedianErr: {}'
+                  .format(i, j, exp['type'], model.count_params(),
                           mse[i, j], med_err[i, j]))
     return med_err, mse
 
@@ -171,7 +177,7 @@ if __name__ == '__main__':
                      [0.05, 0, 0.01, 0.05],
                      [0.01, 0.01, 0, 0.05],
                      [0, 0.05, 0.05, 0]]
-    G_params['type_z'] = ds.CONT
+    G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
     Gs['pct'] = True
     Gs['create'] = 10
@@ -197,8 +203,10 @@ if __name__ == '__main__':
     learning['non_dec'] = 10
 
     start_time = time.time()
-    models_state = train_models(Gs, signals, learning)
-    med_err, mse = test_other_graphs(Gs, signals, learning, models_state)
+    data_state, models_state, Gx, Gy = train_models(Gs, signals, learning)
+    test_original_graphs(data_state, models_state, Gx, Gy, signals, learning)
+    med_err, mse = test_other_graphs(Gs, signals, learning, data_state,
+                                     models_state)
     utils.print_partial_results(signals['noise'], EXPS, mse, med_err)
     end_time = time.time()
     print('Time: {} hours'.format((end_time-start_time)/3600))
