@@ -193,6 +193,39 @@ class LinearDS2GS2GSTest(unittest.TestCase):
             self.assertAlmostEqual(np.linalg.norm(data.train_Y[i,:]),1)
 
 
+class LinearDS2GSLinksPert(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(SEED)
+        self.G_params = {}
+        self.G_params['type'] = ds.SBM
+        self.G_params['N'] = 32
+        self.G_params['k'] = 4
+        self.G_params['p'] = 0.7
+        self.G_params['q'] = 0.1
+        self.G_params['type_z'] = ds.RAND
+        self.eps1 = 5
+        self.eps2 = 5
+        self.Gx, self.Gy = ds.perturbated_graphs(self.G_params, self.eps1,
+                                                 self.eps2, seed=SEED)
+
+    def test_same_S(self):
+        n_samps = [50, 20, 20]
+        L = 6
+        n_delts = self.G_params['k']
+        data = ds.LinearDS2GSLinksPert(self.Gx, self.Gy, n_samps, L, n_delts)
+        self.assertFalse(np.array_equal(data.Hx, data.Hy))
+        self.assertTrue(np.array_equal(data.train_Sx, data.train_Sy))
+        self.assertTrue(np.array_equal(data.val_Sx, data.val_Sy))
+        self.assertTrue(np.array_equal(data.test_Sx, data.test_Sy))
+
+        for i in range(n_samps[0]):
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+        for i in range(n_samps[1]):
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+        for i in range(n_samps[2]):
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+
+
 class GraphClustSizesTest(unittest.TestCase):
     def setUp(self):
         self.G_params = {}

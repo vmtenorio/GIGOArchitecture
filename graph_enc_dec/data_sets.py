@@ -303,7 +303,12 @@ class DiffusedSparse2GS:
 
 
 class LinearDS2GS(DiffusedSparse2GS):
-    # NOTE: now deltas have the same value but re placed in different nodes!!
+    '''
+    With this class X and Y will be transformations of an sparse intermediate space Sx and Sy.
+    However, despite Sx and Sy having the same nonzero values, these deltas will be placed
+    on different nodes (but on the same community) even  if Gx and Gy are equal. For assigning
+    deltas to the exact same nodes please use the class LinearDS2GSLinksPert.
+    '''
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
                  max_d=1, median=True, same_coeffs=False):
         super(LinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts, min_d,
@@ -337,9 +342,6 @@ class LinearDS2GS(DiffusedSparse2GS):
         self.train_Sx = self.sparse_S(self.Gx, train_deltas)
         self.val_Sx = self.sparse_S(self.Gx, val_deltas)
         self.test_Sx = self.sparse_S(self.Gx, test_deltas)
-            # self.train_Sy = self.train_Sx
-            # self.val_Sy = self.val_Sx
-            # self.test_Sy = self.test_Sx
         self.train_Sy = self.sparse_S(self.Gy, train_deltas)
         self.val_Sy = self.sparse_S(self.Gy, val_deltas)
         self.test_Sy = self.sparse_S(self.Gy, test_deltas)
@@ -358,6 +360,23 @@ class LinearDS2GS(DiffusedSparse2GS):
             self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
             self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
             self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
+
+
+# Si inicializa igual heredar de LinearDS2GS y reescribir métodos
+class LinearDS2GSLinksPert(LinearDS2GS):
+    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
+                 max_d=1, median=True, same_coeffs=False):
+        super(LinearDS2GSLinksPert, self).__init__(Gx, Gy, n_samples, L,
+                                                   n_delts, min_d, max_d)
+
+    def create_samples_S(self, delts, min_d, max_d):
+        print('OWN S!')
+        train_deltas = self.delta_values(self.Gx, self.n_train, delts, min_d, max_d)
+        val_deltas = self.delta_values(self.Gx, self.n_val, delts, min_d, max_d)
+        test_deltas = self.delta_values(self.Gx, self.n_test, delts, min_d, max_d)
+        self.train_Sx = self.train_Sy = self.sparse_S(self.Gx, train_deltas)
+        self.val_Sx = self.val_Sy = self.sparse_S(self.Gx, val_deltas)
+        self.test_Sx = self.test_Sy = self.sparse_S(self.Gx, test_deltas)
 
 
 class NonLinearDS2GS(DiffusedSparse2GS):
