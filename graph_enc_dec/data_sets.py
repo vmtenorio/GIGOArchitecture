@@ -100,12 +100,14 @@ def perturbate_percentage(Gx, creat, destr):
 
     # Create links
     no_link_i = np.where(A_x_triu == 0)
-    links_c = np.random.choice(no_link_i[0].size, int(Gx.Ne * creat/100))
+    links_c = np.random.choice(no_link_i[0].size, int(Gx.Ne * creat/100),
+                               replace=False)
     idx_c = (no_link_i[0][links_c], no_link_i[1][links_c])
 
     # Destroy links
     link_i = np.where(A_x_triu == 1)
-    links_d = np.random.choice(link_i[0].size, int(Gx.Ne * destr/100))
+    links_d = np.random.choice(link_i[0].size, int(Gx.Ne * destr/100),
+                               replace=False)
     idx_d = (link_i[0][links_d], link_i[1][links_d])
 
     A_x_triu[np.tril_indices(Gx.N)] = 0
@@ -115,7 +117,7 @@ def perturbate_percentage(Gx, creat, destr):
     return A_y
 
 
-def perturbated_graphs(g_params, eps_c=5, eps_d=5, pct=True, seed=None):
+def perturbated_graphs(g_params, creat=5, dest=5, pct=True, seed=None):
     """
     Create 2 closely related graphs. The first graph is created following the
     indicated model and the second is a perturbated version of the previous
@@ -129,15 +131,38 @@ def perturbated_graphs(g_params, eps_c=5, eps_d=5, pct=True, seed=None):
     """
     Gx = create_graph(g_params, seed)
     if pct:
-        A_y = perturbate_percentage(Gx, eps_c, eps_d)
+        A_y = perturbate_percentage(Gx, creat, dest)
     else:
-        A_y = perturbate_probability(Gx, eps_c, eps_d)
+        A_y = perturbate_probability(Gx, creat, dest)
 
     Gy = Graph(A_y)
     assert Gy.is_connected(), 'Could not create connected graph Gy'
     Gy.set_coordinates(Gx.coords)
     Gy.info = {'node_com': Gx.info['node_com'],
                'comm_sizes': Gx.info['comm_sizes']}
+    return Gx, Gy
+
+
+def nodes_perturbated_graphs(g_params, n_dest, seed=None):
+    Gx = create_graph(g_params, seed)
+    Ax = Gx.A.todense()
+    rm_nodes = np.random.choice(Gx.N, n_dest, replace=False)
+    Ay = np.delete(Ax, rm_nodes, axis=0)
+    Ay = np.delete(Ay, rm_nodes, axis=1)
+
+    # Set Graph info
+    coords_Gy = np.delete(Gx.coords, rm_nodes, axis=0)
+    node_com_Gy = np.delete(Gx.info['node_com'], rm_nodes)
+    comm_sizes_Gy = np.zeros(len(Gx.info['comm_sizes']))
+    for i in range(len(Gx.info['comm_sizes'])):
+        comm_sizes_Gy[i] = np.sum(node_com_Gy == i)
+
+    Gy = Graph(Ay)
+    assert Gy.is_connected(), 'Could not create connected graph Gy'
+    Gy.set_coordinates(coords_Gy)
+    Gy.info = {'node_com': node_com_Gy,
+               'comm_sizes': comm_sizes_Gy,
+               'rm_nodes': rm_nodes}
     return Gx, Gy
 
 
@@ -362,10 +387,10 @@ class LinearDS2GS(DiffusedSparse2GS):
             self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
 
-# Si inicializa igual heredar de LinearDS2GS y reescribir métodos
 class LinearDS2GSLinksPert(LinearDS2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
                  max_d=1, median=True, same_coeffs=False):
+        assert Gx.N == Gy.N, 'Graphs Gx and Gy must have the same size'
         super(LinearDS2GSLinksPert, self).__init__(Gx, Gy, n_samples, L,
                                                    n_delts, min_d, max_d)
 
@@ -376,6 +401,40 @@ class LinearDS2GSLinksPert(LinearDS2GS):
         self.train_Sx = self.train_Sy = self.sparse_S(self.Gx, train_deltas)
         self.val_Sx = self.val_Sy = self.sparse_S(self.Gx, val_deltas)
         self.test_Sx = self.test_Sy = self.sparse_S(self.Gx, test_deltas)
+
+
+class LinearDS2GSNodesPert(LinearDS2GS):
+    def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
+                 max_d=1, median=True, same_coeffs=False):
+        assert Gx.N == Gy.N, 'Graphs Gx and Gy must have the same size'
+        super(LinearDS2GSNodesPert, self).__init__(Gx, Gy, n_samples, L,
+                                                   n_delts, min_d, max_d)
+
+    def create_samples_S(self, delts, min_d, max_d):
+        train_deltas = self.delta_values(self.Gx, self.n_train, delts, min_d, max_d)
+        val_deltas = self.delta_values(self.Gx, self.n_val, delts, min_d, max_d)
+        test_deltas = self.delta_values(self.Gx, self.n_test, delts, min_d, max_d)
+        self.train_Sx, self.train_Sy = self.sparse_S(self.Gx, train_deltas)
+        self.val_Sx, self.val_Sy = self.sparse_S(self.Gx, val_deltas)
+        self.test_Sx, self.test_Sy = self.sparse_S(self.Gx, test_deltas)
+
+    def sparse_S(self, G, delta_values):
+        n_samp = delta_values.shape[1]
+        Sx = np.zeros((G.N, n_samp))
+        Sy = np.zeros((G.N, n_samp))
+        rm_nodes = self.Gy.info['rm_nodes']
+        for i in range(n_samp):
+            for j in range(delta_values.shape[0]):
+                delta = delta_values[j, i]
+                com_j = j % G.info['comm_sizes'].size
+                com_nodes, = np.asarray(G.info['node_com'] == com_j).nonzero()
+                for n in rm_nodes:
+                    com_nodes = np.delete(com_nodes, np.where(com_nodes == n))
+                rand_index = np.random.randint(0, len(com_nodes))
+                Sx[com_nodes[rand_index], i] = delta
+                Sy[com_nodes[rand_index], i] = delta
+        Sy = np.delete(Sy, rm_nodes, axis=0)
+        return Sx.T, Sy.T
 
 
 class NonLinearDS2GS(DiffusedSparse2GS):

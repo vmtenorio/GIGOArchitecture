@@ -32,9 +32,10 @@ class PerturbatedGraphsTest(unittest.TestCase):
         print('Link x:', Gx.Ne)
         print('Link y:', Gy.Ne)
         self.assertEqual(1664, Gx.Ne)
-        self.assertEqual(1672, Gy.Ne)
+        self.assertEqual(1664, Gy.Ne)
         print('Diff links:', np.sum(Gx.A != Gy.A)/2/Gx.Ne)
-        self.assertAlmostEqual(0.19471153846153846, np.sum(Gx.A != Gy.A)/2/Gx.Ne)
+        self.assertAlmostEqual(0.19951923076923078,
+                               np.sum(Gx.A != Gy.A)/2/Gx.Ne)
 
     def test_probability_perturbation(self):
         create = 0.0005
