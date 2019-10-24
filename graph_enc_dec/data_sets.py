@@ -370,7 +370,6 @@ class LinearDS2GSLinksPert(LinearDS2GS):
                                                    n_delts, min_d, max_d)
 
     def create_samples_S(self, delts, min_d, max_d):
-        print('OWN S!')
         train_deltas = self.delta_values(self.Gx, self.n_train, delts, min_d, max_d)
         val_deltas = self.delta_values(self.Gx, self.n_val, delts, min_d, max_d)
         test_deltas = self.delta_values(self.Gx, self.n_test, delts, min_d, max_d)
