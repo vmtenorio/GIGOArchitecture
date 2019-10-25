@@ -19,7 +19,7 @@ VERBOSE = False
 SAVE = True
 SAVE_PATH = './results/node_pert'
 EVAL_F = 5
-PERT = [50, 100, 150]
+PERT = [10, 20, 30, 40, 50]
 
 CONV1 = [{'f_enc': [1, 2, 2, 2, 3],  # 10
           'kernel_enc': 11,
@@ -64,11 +64,10 @@ CONV2 = [{'f_enc': [1, 1, 1, 2, 2],  # 10
           'kernel_dec': 11}]
 
 
-EXPS = [
-        # {'type': 'AutoFC',
-        #  'n_enc': [256, 1],
-        #  'n_dec': [1, None],
-        #  'bias': True},
+EXPS = [{'type': 'AutoFC',
+         'n_enc': [256, 1],
+         'n_dec': [1, None],
+         'bias': True},
         {'type': 'Enc_Dec',  # 298
          'f_enc': [1, 5, 5, 5, 7, 10],
          'n_enc': [256, 64, 32, 16, 8, 4],
@@ -90,8 +89,8 @@ EXPS = [
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        # {'type': 'AutoConv',
-        #  'convs': CONV1},
+        {'type': 'AutoConv',
+         'convs': CONV1},
         {'type': 'Enc_Dec',  # HalfWeigths
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [256, 64, 16, 8, 4],
@@ -100,9 +99,8 @@ EXPS = [
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        # {'type': 'AutoConv',
-        #  'convs': CONV2}
-        ]
+        {'type': 'AutoConv',
+         'convs': CONV2}]
 
 
 N_EXPS = len(EXPS)
@@ -168,7 +166,7 @@ if __name__ == '__main__':
 
     # Graphs parameters
     Gs = {}
-    Gs['n_graphs'] = 10
+    Gs['n_graphs'] = 25
     G_params = {}
     G_params['type'] = ds.SBM
     G_params['N'] = N = 256
@@ -214,10 +212,10 @@ if __name__ == '__main__':
                     results.append(pool.apply_async(run,
                                    args=[j, Gs, signals, learning, pert]))
                 for j in range(Gs['n_graphs']):
-                    mean_err[j, :, i], median_err[j, :, i], mse[j, :, i] = \
+                    mean_err[j, :, i], median_err[j, :, i], node_err[j, :, i] = \
                         results[j].get()
         else:
-            mean_err[0, :, i], median_err[0, :, i], mse[0, :, i] = \
+            mean_err[0, :, i], median_err[0, :, i], node_err[0, :, i] = \
                 run(0, Gs, signals, learning, pert)
 
     # Print summary
