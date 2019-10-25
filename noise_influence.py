@@ -17,9 +17,9 @@ SEED = 15
 N_CPUS = cpu_count()
 VERBOSE = False
 SAVE = True
-SAVE_PATH = './results/diff_models'
+SAVE_PATH = './results/noise'
 EVAL_F = 5
-P_N = [0.075, .01]  # [0, .025, .05, 0.75, .1]  # [0, .05, .1]
+P_N = [0, .025, .05, 0.75, .1, .125, .15, .175, .2]
 
 
 # Different size: 30 nodos menos
@@ -72,11 +72,15 @@ N_EXPS = len(EXPS)
 
 
 def run(id, Gs, signals, lrn, p_n):
-    Gx = ds.create_graph(Gs['params'], seed=SEED)
-    Gy = ds.create_graph(Gs['params_y'], seed=SEED)
+    Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED)
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
                           same_coeffs=signals['same_coeffs'])
+    # Gx = ds.create_graph(Gs['params'], seed=SEED)
+    # Gy = ds.create_graph(Gs['params_y'], seed=SEED)
+    # data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
+    #                       signals['deltas'], median=signals['median'],
+    #                       same_coeffs=signals['same_coeffs'])
     data.to_unit_norm()
     data.add_noise(p_n, test_only=signals['test_only'])
     data.to_tensor()
@@ -140,15 +144,16 @@ if __name__ == '__main__':
                      [0, 0.0025, 0.005, 0]]
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
+    Gs['pert'] = 30
 
-    G_params_y = {}
-    G_params_y['type'] = G_params['type']
-    G_params_y['N'] = G_params['N'] - 30
-    G_params_y['k'] = G_params['k']
-    G_params_y['p'] = G_params['p']
-    G_params_y['q'] = G_params['q']
-    G_params_y['type_z'] = G_params['type_z']
-    Gs['params_y'] = G_params_y
+    # G_params_y = {}
+    # G_params_y['type'] = G_params['type']
+    # G_params_y['N'] = G_params['N'] - 30
+    # G_params_y['k'] = G_params['k']
+    # G_params_y['p'] = G_params['p']
+    # G_params_y['q'] = G_params['q']
+    # G_params_y['type_z'] = G_params['type_z']
+    # Gs['params_y'] = G_params_y
 
     # Signals
     signals = {}
@@ -172,7 +177,7 @@ if __name__ == '__main__':
     start_time = time.time()
     mean_err = np.zeros((Gs['n_graphs'], N_EXPS, len(P_N)))
     median_err = np.zeros((Gs['n_graphs'], N_EXPS, len(P_N)))
-    mse = np.zeros((Gs['n_graphs'], N_EXPS, len(P_N)))
+    node_err = np.zeros((Gs['n_graphs'], N_EXPS, len(P_N)))
     for i, p_n in enumerate(P_N):
         print('P_N:', p_n)
         with Pool(processes=N_CPUS) as pool:
@@ -181,20 +186,20 @@ if __name__ == '__main__':
                 results.append(pool.apply_async(run,
                                args=[j, Gs, signals, learning, p_n]))
             for j in range(Gs['n_graphs']):
-                mean_err[j, :, i], median_err[j, :, i], mse[j, :, i] = \
+                mean_err[j, :, i], median_err[j, :, i], node_err[j, :, i] = \
                     results[j].get()
 
         # Print summary
-        utils.print_partial_results(p_n, EXPS, mean_err[:, :, i],
+        utils.print_partial_results(p_n, EXPS, node_err[:, :, i],
                                     median_err[:, :, i])
 
-        utils.save(SAVE_PATH, EXPS, mean_err[:, :, i], median_err[:, :, i],
+        utils.save(SAVE_PATH, EXPS, node_err[:, :, i], median_err[:, :, i],
                    Gs, signals, learning)
 
     end_time = time.time()
-    utils.print_results(P_N, EXPS, mean_err, median_err)
+    utils.print_results(P_N, EXPS, node_err, median_err)
     print('Time: {} hours'.format((end_time-start_time)/3600))
 
     if SAVE:
-        utils.save(SAVE_PATH, EXPS, mean_err, median_err, Gs, signals,
+        utils.save(SAVE_PATH, EXPS, node_err, median_err, Gs, signals,
                    learning)

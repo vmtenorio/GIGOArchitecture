@@ -19,7 +19,7 @@ VERBOSE = False
 SAVE = True
 SAVE_PATH = './results/node_pert'
 EVAL_F = 5
-PERT = [10, 20, 30, 40, 50]
+PERT = [50, 100, 150]
 
 CONV1 = [{'f_enc': [1, 2, 2, 2, 3],  # 10
           'kernel_enc': 11,
@@ -64,15 +64,16 @@ CONV2 = [{'f_enc': [1, 1, 1, 2, 2],  # 10
           'kernel_dec': 11}]
 
 
-EXPS = [{'type': 'AutoFC',
-         'n_enc': [256, 1],
-         'n_dec': [1, None],
-         'bias': True},
+EXPS = [
+        # {'type': 'AutoFC',
+        #  'n_enc': [256, 1],
+        #  'n_dec': [1, None],
+        #  'bias': True},
         {'type': 'Enc_Dec',  # 298
-         'f_enc': [1, 5, 5, 5, 5, 5, 5],
-         'n_enc': [256, 128, 64, 32, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 128, None],
+         'f_enc': [1, 5, 5, 5, 7, 10],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [10, 7, 5, 5, 5, 5],
+         'n_dec': [4, 8, 16, 32, 64, None],
          'f_conv': [5, 5, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -82,15 +83,15 @@ EXPS = [{'type': 'AutoFC',
         #  'f_dec': [5, 3, 2, 1],
         #  'kernel_dec': 10},
         {'type': 'Enc_Dec',  # 132
-         'f_enc': [1, 3, 5, 5, 5, 5],
-         'n_enc': [256, 128, 64, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5, 3, 3],
-         'n_dec': [4, 8, 16, 64, 128, None],
+         'f_enc': [1, 5, 5, 5, 5],
+         'n_enc': [256, 64, 16, 8, 4],
+         'f_dec': [5, 5, 5, 5, 3],
+         'n_dec': [4, 8, 16, 64, None],
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'AutoConv',
-         'convs': CONV1},
+        # {'type': 'AutoConv',
+        #  'convs': CONV1},
         {'type': 'Enc_Dec',  # HalfWeigths
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [256, 64, 16, 8, 4],
@@ -99,8 +100,9 @@ EXPS = [{'type': 'AutoFC',
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
-        {'type': 'AutoConv',
-         'convs': CONV2}]
+        # {'type': 'AutoConv',
+        #  'convs': CONV2}
+        ]
 
 
 N_EXPS = len(EXPS)
@@ -166,7 +168,7 @@ if __name__ == '__main__':
 
     # Graphs parameters
     Gs = {}
-    Gs['n_graphs'] = 1
+    Gs['n_graphs'] = 10
     G_params = {}
     G_params['type'] = ds.SBM
     G_params['N'] = N = 256
@@ -202,7 +204,7 @@ if __name__ == '__main__':
     start_time = time.time()
     mean_err = np.zeros((Gs['n_graphs'], N_EXPS, len(PERT)))
     median_err = np.zeros((Gs['n_graphs'], N_EXPS, len(PERT)))
-    mse = np.zeros((Gs['n_graphs'], N_EXPS, len(PERT)))
+    node_err = np.zeros((Gs['n_graphs'], N_EXPS, len(PERT)))
     for i, pert in enumerate(PERT):
         print('PCT:', pert)
         if Gs['n_graphs'] > 1:
@@ -219,12 +221,12 @@ if __name__ == '__main__':
                 run(0, Gs, signals, learning, pert)
 
     # Print summary
-        utils.print_partial_results(pert, EXPS, mean_err[:, :, i],
+        utils.print_partial_results(pert, EXPS, node_err[:, :, i],
                                     median_err[:, :, i])
     end_time = time.time()
-    utils.print_results(PERT, EXPS, mean_err, median_err)
+    utils.print_results(PERT, EXPS, node_err, median_err)
     print('Time: {} hours'.format((end_time-start_time)/3600))
 
     if SAVE:
-        utils.save(SAVE_PATH, EXPS, mean_err, median_err, Gs, signals,
+        utils.save(SAVE_PATH, EXPS, node_err, median_err, Gs, signals,
                    learning)
