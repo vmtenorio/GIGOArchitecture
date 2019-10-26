@@ -406,7 +406,6 @@ class LinearDS2GSLinksPert(LinearDS2GS):
 class LinearDS2GSNodesPert(LinearDS2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
                  max_d=1, median=True, same_coeffs=False):
-        assert Gx.N == Gy.N, 'Graphs Gx and Gy must have the same size'
         super(LinearDS2GSNodesPert, self).__init__(Gx, Gy, n_samples, L,
                                                    n_delts, min_d, max_d)
 
