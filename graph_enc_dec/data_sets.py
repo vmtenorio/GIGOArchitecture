@@ -182,10 +182,10 @@ class DiffusedSparse2GS:
         if Gx.info['comm_sizes'].size != Gy.info['comm_sizes'].size:
             raise RuntimeError('Both graphs must have the same number of communities')
 
-        if not isinstance(n_samples, list):
+        if isinstance(n_samples, int):
             self.n_train = n_samples
-            self.n_val = int(np.floor(0.2*n_samples))
-            self.n_test = int(np.floor(0.2*n_samples))
+            self.n_val = int(np.floor(0.25*n_samples))
+            self.n_test = int(np.floor(0.25*n_samples))
         elif len(n_samples) == 3:
             self.n_train = n_samples[0]
             self.n_val = n_samples[1]

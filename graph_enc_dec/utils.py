@@ -89,20 +89,26 @@ def plot_perturbation(file_name, params=True):
     #           'Enc/Dec Wei(132)', 'AutoConv (528)', 'AutoFC (512)']
 
     fmt = ['X-', 'o-', 'P-', 'o--', '^--', 'P--', 'o:', '^:', 'P:']
-    legend = ['AutoFC (769)', 'Enc/Dec Wei(440)', 'AutoConv (440)',
-              'Enc/Dec Wei(298)', 'Enc/Dec NoUps(298)', 'AutoConv (280)',
-              'Enc/Dec Wei(132)', 'Enc/Dec NoUps(132)', 'AutoConv (140)']
+    legend = ['AE-FC-769', 'G-E/D-Wei-440', 'AE-CV-440',
+              'G-E/D-Wei-298', 'G-E/D-NoUps-298', 'AE-CV-280',
+              'G-E/D-Wei-132', 'G-E/D-NoUps-132', 'AE-CV-140']
 
     plot_results(pct, err, xlabel=xlabel, fmt=fmt, legend=legend)
     save_mat_file('perturbation', err, pct, legend, fmt)
 
 
-def plot_noise(file_name):
-    path = PATH + 'diff_models/' + file_name + '.npy'
+def plot_noise(file_name, node_err=True):
+    # path = PATH + 'diff_models/' + file_name + '.npy'
+    path = PATH + 'noise/' + file_name + '.npy'
     data = np.load(path).item()
     noise = data['signals']['noise']
     # med_err = np.median(data['median_err'], axis=0)[1:]
-    med_err = np.median(data['median_err'], axis=0)
+    if node_err:
+        med_err = np.median(data['node_err'], axis=0)
+        mat_file = 'noise_node_err'
+    else:
+        med_err = np.median(data['median_err'], axis=0)
+        mat_file = 'noise'
     xlabel = 'Normalized noise power'
 
     # legend = ['Enc/Dec Wei(192)', 'AutoConv (210)',
@@ -110,29 +116,63 @@ def plot_noise(file_name):
     #           'AutoConv (140)']
     # fmt = ['o-', 'P-', 'X-', 'o--', 'o:', 'P--']
 
-    legend = ['AutoencFC(709)', 'Enc/Dec WEI (440)', 'AutoencConv (429)',
-              'Enc/Dec WEI (298)', 'AutoencConv (308)', 'Enc/Dec Wei(132)',
-              'AutoConv (144)']
+    legend = ['AE-FC-709', 'G-E/D-440', 'AE-CV-429', 'G-E/D-298', 'AE-CV-308',
+              'G-E/D-132', 'AE-CV-144']
     fmt = ['X-', 'o-', 'P-', 'o--', 'P--', 'o:', 'P:']
 
     plot_results(noise, med_err, xlabel=xlabel, fmt=fmt, legend=legend)
-    save_mat_file('noise2', med_err, noise, legend, fmt)
+    save_mat_file('mat_file', med_err, noise, legend, fmt)
 
 
-def plot_node_pert(file_name):
+def plot_node_pert(file_name, node_err=True):
     path = PATH + 'node_pert/' + file_name + '.npy'
     data = np.load(path).item()
-    pct = [10, 20, 30, 40, 50]
-    med_err = np.median(data['median_err'], axis=0)
+    pct = np.array([10, 20, 30, 40, 50])
+    print((256-pct))
+    if node_err:
+        med_err = np.median(data['node_err'], axis=0)
+        mat_file = 'nodes_pert_node_err'
+    else:
+        med_err = np.median(data['median_err'], axis=0)
+        mat_file = 'nodes_pert'
     xlabel = 'Number of deleted nodes'
-    legend = ['AutoencFC (709)', 'Enc/Dec (440)', 'Enc/Dec (298)', 'AutoencConv (308)',
-              'Enc/Dec (132)', 'AutoencConv (143)']
+    legend = ['AE-FC-709', 'G-E/D-440', 'G-E/D-298', 'AE-CV-308',
+              'G-E/D-132', 'AE-CV-144']
     fmt = ['X-', 'o-', 'o--', 'P--', 'o:', 'P:']
+
+    # med_err = med_err[np.array([0, 2, 3, 4, 5])]
+    legend.remove(legend[1])
+    fmt.remove(fmt[1])
+
     plot_results(pct, med_err, xlabel=xlabel, fmt=fmt, legend=legend)
-    save_mat_file('nodes_pert', med_err, pct, legend, fmt)
+    save_mat_file(mat_file, med_err, pct, legend, fmt)
+
+
+def plot_deltas(file_name, node_err=True):
+    path = PATH + 'deltas/' + file_name + '.npy'
+    data = np.load(path).item()
+    deltas = [4, 40, 80, 120, 160, 200]
+    if node_err:
+        med_err = np.median(data['node_err'], axis=0)
+        mat_file = 'deltas_node_err'
+    else:
+        med_err = np.median(data['median_err'], axis=0)
+        mat_file = 'deltas'
+    xlabel = 'Number of deltas'
+    legend = ['AE-FC-709', 'G-E/D-298', 'AE-CV-308',
+              'G-E/D-132', 'AE-CV-144']
+    fmt = ['X-', 'o--', 'P--', 'o:', 'P:']
+    plot_results(deltas, med_err, xlabel=xlabel, fmt=fmt, legend=legend)
+    save_mat_file(mat_file, med_err, deltas, legend, fmt)
 
 
 if __name__ == '__main__':
-    plot_perturbation('perturbation_2019_10_24-20_23', False)
-    # plot_noise('diff_models_2019_10_24-22_04')
-    # plot_node_pert('node_pert_2019_10_25-12_38')
+    # plot_perturbation('perturbation_2019_10_24-20_23', False)
+    # plot_noise('noise_2019_10_27-00_33', False)
+    # plot_node_pert('node_pert_2019_10_27-04_05', False)
+    plot_deltas('deltas_2019_10_27-12_10', True)
+
+    # path = PATH + 'deltas/' + 'deltas_2019_10_27-12_10.npy'
+    # data = np.load(path).item()
+    # print_results(data['signals']['deltas'], data['exps'],
+    #               data['node_err'], data['median_err'])
