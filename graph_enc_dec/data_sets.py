@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from pygsp.graphs import Graph, StochasticBlockModel, ErdosRenyi
+from pygsp.graphs import Graph, StochasticBlockModel, ErdosRenyi, BarabasiAlbert
 from torch import Tensor
 
 # Graph Type Constants
 SBM = 1
 ER = 2
+BA = 3
 
 # Comm Node Assignment Constants
 CONT = 1    # Contiguous nodes
@@ -72,6 +73,12 @@ def create_graph(ps, seed=None):
         G = ErdosRenyi(N=ps['N'], p=ps['p'], connected=True, seed=seed,
                        max_iter=25)
         G.set_coordinates('community2D')
+        return G
+    elif ps['type'] == BA:
+        G = BarabasiAlbert(N=ps['N'], m=ps['m'], m0=ps['m0'], seed=seed)
+        G.info = {'comm_sizes': np.array([ps['N']]),
+                  'node_com': np.zeros((ps['N'],), dtype=int)}
+        G.set_coordinates('spring')
         return G
     else:
         raise RuntimeError('Unknown graph type')
@@ -363,12 +370,16 @@ class LinearDS2GS(DiffusedSparse2GS):
     deltas to the exact same nodes please use the class LinearDS2GSLinksPert.
     '''
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=True, same_coeffs=False):
+                 max_d=1, median=True, same_coeffs=False, neg_coeffs=False):
         super(LinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts, min_d,
                                           max_d)
         self.median = median
-        self.hx = np.random.rand(L)
-        self.hy = self.hx if same_coeffs else np.random.rand(L)
+        if neg_coeffs:
+            self.hx = 2 * np.random.rand(L) - 1
+            self.hy = self.hx if same_coeffs else (2 * np.random.rand(L) - 1)
+        else:
+            self.hx = np.random.rand(L)
+            self.hy = self.hx if same_coeffs else np.random.rand(L)
         self.random_diffusing_filters()
         self.create_samples_S(n_delts, min_d, max_d)
         self.create_samples_X_Y()
@@ -468,19 +479,24 @@ class LinearDS2GSNodesPert(LinearDS2GS):
                 rand_index = np.random.randint(0, len(com_nodes))
                 Sx[com_nodes[rand_index], i] = delta
                 Sy[com_nodes[rand_index], i] = delta
+        raise RuntimeError
         Sy = np.delete(Sy, rm_nodes, axis=0)
         return Sx.T, Sy.T
 
 
 class NonLinearDS2GS(DiffusedSparse2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=False, same_coeffs=False):
+                 max_d=1, median=False, same_coeffs=False, neg_coeffs=False):
         super(NonLinearDS2GS, self).__init__(Gx, Gy, n_samples, L, n_delts,
                                              min_d, max_d)
 
         # TODO: check that linear is still a poor approximation for this
-        h_x = np.random.rand(L)
-        h_y = h_x if same_coeffs else np.random.rand(L)
+        if neg_coeffs:
+            self.hx = 2 * np.random.rand(L) - 1
+            self.hy = self.hx if same_coeffs else (2 * np.random.rand(L) - 1)
+        else:
+            self.hx = np.random.rand(L)
+            self.hy = self.hx if same_coeffs else np.random.rand(L)
         self.train_S = self.sparse_S(self.n_train, n_delts, min_d, max_d)
         self.val_S = self.sparse_S(self.n_val, n_delts, min_d, max_d)
         self.test_S = self.sparse_S(self.n_test, n_delts, min_d, max_d)

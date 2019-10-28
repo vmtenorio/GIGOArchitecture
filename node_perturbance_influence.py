@@ -107,10 +107,17 @@ N_EXPS = len(EXPS)
 
 
 def run(id, Gs, signals, lrn, pert):
-    Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], pert, seed=SEED)
+    if Gs['params']['type'] == ds.SBM:
+        Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], pert, seed=SEED)
+    elif Gs['params']['type'] == ds.BA:
+        Gx = ds.create_graph(Gs['params'], SEED)
+        Gy = ds.create_graph(Gs['params'], 2*SEED)
+    else:
+        raise RuntimeError("Choose a valid graph type")
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
-                          same_coeffs=signals['same_coeffs'])
+                          same_coeffs=signals['same_coeffs'],
+                          neg_coeffs=signals['neg_coeffs'])
     data.to_unit_norm()
     data.add_noise(signals['noise'], test_only=signals['test_only'])
     data.to_tensor()
@@ -123,6 +130,7 @@ def run(id, Gs, signals, lrn, pert):
         if exp['type'] == 'Linear':
             model = LinearModel(exp['N'])
         elif exp['type'] == 'Enc_Dec':
+            continue
             exp['n_dec'][-1] = Gy.N
             clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
                                                  k=exp['n_enc'][-1],
@@ -170,13 +178,20 @@ if __name__ == '__main__':
     G_params = {}
     G_params['type'] = ds.SBM
     G_params['N'] = N = 256
-    G_params['k'] = k = 4
-    G_params['p'] = 0.25
-    G_params['q'] = [[0, 0.0075, 0, 0.0],
-                     [0.0075, 0, 0.004, 0.0025],
-                     [0, 0.004, 0, 0.005],
-                     [0, 0.0025, 0.005, 0]]
-    G_params['type_z'] = ds.RAND
+    if G_params['type'] == ds.SBM:
+        G_params['k'] = k = 4
+        G_params['p'] = 0.25
+        G_params['q'] = [[0, 0.0075, 0, 0.0],
+                        [0.0075, 0, 0.004, 0.0025],
+                        [0, 0.004, 0, 0.005],
+                        [0, 0.0025, 0.005, 0]]
+        G_params['type_z'] = ds.RAND
+    elif G_params['type'] == ds.BA:
+        G_params['m0'] = 1
+        G_params['m'] = 1
+        k = int(N/32)   # In this case k is only used for the number of deltas
+    else:
+        raise RuntimeError("Choose a valid graph type")
     Gs['params'] = G_params
     Gs['pert'] = PERT
 
@@ -188,6 +203,7 @@ if __name__ == '__main__':
     signals['noise'] = 0
     signals['median'] = True
     signals['same_coeffs'] = False
+    signals['neg_coeffs'] = False
     signals['test_only'] = True
 
     learning = {}

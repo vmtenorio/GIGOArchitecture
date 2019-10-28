@@ -25,13 +25,13 @@ P_N = [0, .025, .05, 0.75, .1, .125, .15, .175, .2]
 # Different size: 30 nodos menos
 EXPS = [{'type': 'AutoFC',
          'n_enc': [256, 1],
-         'n_dec': [1, 226],
+         'n_dec': [1, 256],
          'bias': True},
         {'type': 'Enc_Dec',  # Original
          'f_enc': [1, 5, 5, 5, 5, 5, 5],
          'n_enc': [256, 128, 64, 32, 16, 8, 4],
          'f_dec': [5, 5, 5, 5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 128, 226],
+         'n_dec': [4, 8, 16, 32, 64, 128, 256],
          'f_conv': [5, 5, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -44,7 +44,7 @@ EXPS = [{'type': 'AutoFC',
          'f_enc': [1, 3, 5, 5, 5, 5],
          'n_enc': [256, 128, 64, 16, 8, 4],
          'f_dec': [5, 5, 5, 5, 3, 3],
-         'n_dec': [4, 8, 16, 64, 128, 226],
+         'n_dec': [4, 8, 16, 64, 128, 256],
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -57,7 +57,7 @@ EXPS = [{'type': 'AutoFC',
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [256, 64, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 64, 226],
+         'n_dec': [4, 8, 16, 64, 256],
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -72,10 +72,17 @@ N_EXPS = len(EXPS)
 
 
 def run(id, Gs, signals, lrn, p_n):
-    Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED)
+    if Gs['params']['type'] == ds.SBM:
+        Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED)
+    elif Gs['params']['type'] == ds.BA:
+        Gx = ds.create_graph(Gs['params'], SEED)
+        Gy = ds.create_graph(Gs['params'], 2*SEED)
+    else:
+        raise RuntimeError("Choose a valid graph type")
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
-                          same_coeffs=signals['same_coeffs'])
+                          same_coeffs=signals['same_coeffs'],
+                          neg_coeffs=signals['neg_coeffs'])
     # Gx = ds.create_graph(Gs['params'], seed=SEED)
     # Gy = ds.create_graph(Gs['params_y'], seed=SEED)
     # data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
@@ -106,6 +113,9 @@ def run(id, Gs, signals, lrn, p_n):
                                       last_act_fn=lrn['laf'], ups=exp['ups'],
                                       downs=exp['downs'])
         elif exp['type'] == 'AutoConv':
+            # TODO: this is not working as the final lenght is 226 and N = 256
+            # Skip it for now
+            continue
             net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
                                   exp['f_dec'], exp['kernel_dec'])
         elif exp['type'] == 'AutoFC':
@@ -134,15 +144,22 @@ if __name__ == '__main__':
     Gs = {}
     Gs['n_graphs'] = 25
     G_params = {}
-    G_params['type'] = ds.SBM
+    G_params['type'] = ds.BA
     G_params['N'] = N = 256
-    G_params['k'] = k = 4
-    G_params['p'] = 0.25
-    G_params['q'] = [[0, 0.0075, 0, 0.0],
-                     [0.0075, 0, 0.004, 0.0025],
-                     [0, 0.004, 0, 0.005],
-                     [0, 0.0025, 0.005, 0]]
-    G_params['type_z'] = ds.RAND
+    if G_params['type'] == ds.SBM:
+        G_params['k'] = k = 4
+        G_params['p'] = 0.25
+        G_params['q'] = [[0, 0.0075, 0, 0.0],
+                        [0.0075, 0, 0.004, 0.0025],
+                        [0, 0.004, 0, 0.005],
+                        [0, 0.0025, 0.005, 0]]
+        G_params['type_z'] = ds.RAND
+    elif G_params['type'] == ds.BA:
+        G_params['m0'] = 1
+        G_params['m'] = 1
+        k = int(N/32)   # In this case k is only used for the number of deltas
+    else:
+        raise RuntimeError("Choose a valid graph type")
     Gs['params'] = G_params
     Gs['pert'] = 30
 
@@ -163,6 +180,7 @@ if __name__ == '__main__':
     signals['noise'] = P_N
     signals['median'] = True
     signals['same_coeffs'] = False
+    signals['neg_coeffs'] = False
     signals['test_only'] = True
 
     learning = {}
