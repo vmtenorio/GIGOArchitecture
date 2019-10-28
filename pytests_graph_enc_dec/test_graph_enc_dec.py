@@ -79,6 +79,22 @@ class PerturbatedGraphsTest(unittest.TestCase):
             self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 <= up_err_margin)
             self.assertTrue(np.sum(Ax != Ay)/Gx.Ne/2 >= bottom_err_margin)
 
+    def test_permute_graph(self):
+        Gx, Gy = ds.perturbated_graphs(self.G_params, 0, 0,
+                                       perm=True, pct=True, seed=SEED)
+        Ax = Gx.W.todense()
+        Ay = Gy.W.todense()
+        comm_X = Gx.info['node_com']
+        comm_Y = Gy.info['node_com']
+        P = Gy.info['perm_matrix']
+        self.assertFalse(np.array_equal(Ax, Ay))
+        self.assertFalse(np.array_equal(comm_X, comm_Y))
+        self.assertTrue(np.array_equal(np.eye(Gx.N), P.dot(P.T)))
+        self.assertTrue(np.array_equal(Ax, P.T.dot(Ay).dot(P)))
+        self.assertTrue(np.array_equal(comm_X, P.T.dot(comm_Y)))
+
+
+
 
 class LinearDS2GS2GSTest(unittest.TestCase):
     def setUp(self):
@@ -199,10 +215,10 @@ class LinearDS2GSLinksPert(unittest.TestCase):
         np.random.seed(SEED)
         self.G_params = {}
         self.G_params['type'] = ds.SBM
-        self.G_params['N'] = 32
-        self.G_params['k'] = 4
-        self.G_params['p'] = 0.7
-        self.G_params['q'] = 0.1
+        self.G_params['N'] = 5  #32
+        self.G_params['k'] = 2  # 4
+        self.G_params['p'] = 0.8
+        self.G_params['q'] = .3  # 0.1
         self.G_params['type_z'] = ds.RAND
         self.eps1 = 5
         self.eps2 = 5
@@ -225,6 +241,22 @@ class LinearDS2GSLinksPert(unittest.TestCase):
             self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
         for i in range(n_samps[2]):
             self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+
+    def test_permutated_S(self):
+        n_samps = [50, 20, 20]
+        L = 6
+        n_delts = self.G_params['k']
+        Gx, Gy = ds.perturbated_graphs(self.G_params, 0, 0,
+                                       perm=True, seed=SEED)
+        data = ds.LinearDS2GSLinksPert(Gx, Gy, n_samps, L, n_delts)
+        P = data.Gy.info['perm_matrix']
+        self.assertFalse(np.array_equal(data.Hx, data.Hy))
+        self.assertFalse(np.array_equal(data.train_Sx, data.train_Sy))
+        self.assertFalse(np.array_equal(data.val_Sx, data.val_Sy))
+        self.assertFalse(np.array_equal(data.test_Sx, data.test_Sy))
+        self.assertTrue(np.array_equal(data.train_Sx, data.train_Sy.dot(P)))
+        self.assertTrue(np.array_equal(data.val_Sx, data.val_Sy.dot(P)))
+        self.assertTrue(np.array_equal(data.test_Sx, data.test_Sy.dot(P)))
 
 
 class GraphClustSizesTest(unittest.TestCase):

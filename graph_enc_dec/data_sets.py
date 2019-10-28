@@ -117,7 +117,28 @@ def perturbate_percentage(Gx, creat, destr):
     return A_y
 
 
-def perturbated_graphs(g_params, creat=5, dest=5, pct=True, seed=None):
+def perm_graph(A, coords, node_com, comm_sizes):
+    N = A.shape[0]
+    # Create permutation matrix
+    P = np.zeros(A.shape)
+    i = np.arange(N)
+    j = np.random.permutation(N)
+    P[i, j] = 1
+
+    # Permute
+    A_p = P.dot(A).dot(P.T)
+    assert np.sum(np.diag(A_p)) == 0, 'Diagonal of permutated A is not 0'
+    coords_p = P.dot(coords)
+    node_com_p = P.dot(node_com)
+    G = Graph(A_p)
+    G.set_coordinates(coords_p)
+    G.info = {'node_com': node_com_p,
+              'comm_sizes': comm_sizes,
+              'perm_matrix': P}
+    return G
+
+
+def perturbated_graphs(g_params, creat=5, dest=5, pct=True, perm=False, seed=None):
     """
     Create 2 closely related graphs. The first graph is created following the
     indicated model and the second is a perturbated version of the previous
@@ -131,15 +152,22 @@ def perturbated_graphs(g_params, creat=5, dest=5, pct=True, seed=None):
     """
     Gx = create_graph(g_params, seed)
     if pct:
-        A_y = perturbate_percentage(Gx, creat, dest)
+        Ay = perturbate_percentage(Gx, creat, dest)
     else:
-        A_y = perturbate_probability(Gx, creat, dest)
+        Ay = perturbate_probability(Gx, creat, dest)
+    coords_Gy = Gx.coords
+    node_com_Gy = Gx.info['node_com']
+    comm_sizes_Gy = Gx.info['comm_sizes']
+    assert np.sum(np.diag(Ay)) == 0, 'Diagonal of A is not 0'
 
-    Gy = Graph(A_y)
+    if perm:
+        Gy = perm_graph(Ay, coords_Gy, node_com_Gy, comm_sizes_Gy)
+    else:
+        Gy = Graph(Ay)
+        Gy.set_coordinates(coords_Gy)
+        Gy.info = {'node_com': node_com_Gy,
+                   'comm_sizes': comm_sizes_Gy}
     assert Gy.is_connected(), 'Could not create connected graph Gy'
-    Gy.set_coordinates(Gx.coords)
-    Gy.info = {'node_com': Gx.info['node_com'],
-               'comm_sizes': Gx.info['comm_sizes']}
     return Gx, Gy
 
 
@@ -398,9 +426,17 @@ class LinearDS2GSLinksPert(LinearDS2GS):
         train_deltas = self.delta_values(self.Gx, self.n_train, delts, min_d, max_d)
         val_deltas = self.delta_values(self.Gx, self.n_val, delts, min_d, max_d)
         test_deltas = self.delta_values(self.Gx, self.n_test, delts, min_d, max_d)
-        self.train_Sx = self.train_Sy = self.sparse_S(self.Gx, train_deltas)
-        self.val_Sx = self.val_Sy = self.sparse_S(self.Gx, val_deltas)
-        self.test_Sx = self.test_Sy = self.sparse_S(self.Gx, test_deltas)
+        self.train_Sx = self.sparse_S(self.Gx, train_deltas)
+        self.val_Sx = self.sparse_S(self.Gx, val_deltas)
+        self.test_Sx = self.sparse_S(self.Gx, test_deltas)
+        if 'perm_matrix' in self.Gy.info.keys():
+            self.train_Sy = self.train_Sx.dot(self.Gy.info['perm_matrix'].T)
+            self.val_Sy = self.val_Sx.dot(self.Gy.info['perm_matrix'].T)
+            self.test_Sy = self.test_Sx.dot(self.Gy.info['perm_matrix'].T)
+        else:
+            self.train_Sy = np.copy(self.train_Sx)
+            self.val_Sy = np.copy(self.val_Sx)
+            self.test_Sy = np.copy(self.test_Sx)
 
 
 class LinearDS2GSNodesPert(LinearDS2GS):
