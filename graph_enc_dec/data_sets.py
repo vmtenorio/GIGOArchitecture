@@ -178,7 +178,7 @@ def perturbated_graphs(g_params, creat=5, dest=5, pct=True, perm=False, seed=Non
     return Gx, Gy
 
 
-def nodes_perturbated_graphs(g_params, n_dest, seed=None):
+def nodes_perturbated_graphs(g_params, n_dest, perm=False, seed=None):
     Gx = create_graph(g_params, seed)
     Ax = Gx.A.todense()
     rm_nodes = np.random.choice(Gx.N, n_dest, replace=False)
@@ -192,12 +192,15 @@ def nodes_perturbated_graphs(g_params, n_dest, seed=None):
     for i in range(len(Gx.info['comm_sizes'])):
         comm_sizes_Gy[i] = np.sum(node_com_Gy == i)
 
-    Gy = Graph(Ay)
+    if perm:
+        Gy = perm_graph(Ay, coords_Gy, node_com_Gy, comm_sizes_Gy)
+    else:
+        Gy = Graph(Ay)
+        Gy.set_coordinates(coords_Gy)
+        Gy.info = {'node_com': node_com_Gy,
+                   'comm_sizes': comm_sizes_Gy}
+    Gy.info['rm_nodes'] = rm_nodes
     assert Gy.is_connected(), 'Could not create connected graph Gy'
-    Gy.set_coordinates(coords_Gy)
-    Gy.info = {'node_com': node_com_Gy,
-               'comm_sizes': comm_sizes_Gy,
-               'rm_nodes': rm_nodes}
     return Gx, Gy
 
 
@@ -428,10 +431,12 @@ class LinearDS2GS(DiffusedSparse2GS):
 
 class LinearDS2GSLinksPert(LinearDS2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=True, same_coeffs=False):
+                 max_d=1, median=True, same_coeffs=False, neg_coeffs=False):
         assert Gx.N == Gy.N, 'Graphs Gx and Gy must have the same size'
         super(LinearDS2GSLinksPert, self).__init__(Gx, Gy, n_samples, L,
-                                                   n_delts, min_d, max_d)
+                                                   n_delts, min_d, max_d,
+                                                   median, same_coeffs,
+                                                   neg_coeffs)
 
     def create_samples_S(self, delts, min_d, max_d):
         train_deltas = self.delta_values(self.Gx, self.n_train, delts, min_d, max_d)
@@ -452,9 +457,11 @@ class LinearDS2GSLinksPert(LinearDS2GS):
 
 class LinearDS2GSNodesPert(LinearDS2GS):
     def __init__(self, Gx, Gy, n_samples, L, n_delts, min_d=-1,
-                 max_d=1, median=True, same_coeffs=False):
+                 max_d=1, median=True, same_coeffs=False, neg_coeffs=False):
         super(LinearDS2GSNodesPert, self).__init__(Gx, Gy, n_samples, L,
-                                                   n_delts, min_d, max_d)
+                                                   n_delts, min_d, max_d,
+                                                   median, same_coeffs,
+                                                   neg_coeffs)
 
     def create_samples_S(self, delts, min_d, max_d):
         train_deltas = self.delta_values(self.Gx, self.n_train, delts, min_d, max_d)
@@ -463,12 +470,17 @@ class LinearDS2GSNodesPert(LinearDS2GS):
         self.train_Sx, self.train_Sy = self.sparse_S(self.Gx, train_deltas)
         self.val_Sx, self.val_Sy = self.sparse_S(self.Gx, val_deltas)
         self.test_Sx, self.test_Sy = self.sparse_S(self.Gx, test_deltas)
+        if 'perm_matrix' in self.Gy.info.keys():
+            self.train_Sy = self.train_Sy.dot(self.Gy.info['perm_matrix'].T)
+            self.val_Sy = self.val_Sy.dot(self.Gy.info['perm_matrix'].T)
+            self.test_Sy = self.test_Sy.dot(self.Gy.info['perm_matrix'].T)
 
     def sparse_S(self, G, delta_values):
         n_samp = delta_values.shape[1]
         Sx = np.zeros((G.N, n_samp))
         Sy = np.zeros((G.N, n_samp))
         rm_nodes = self.Gy.info['rm_nodes']
+        print(self.Gy.info['rm_nodes'])
         for i in range(n_samp):
             for j in range(delta_values.shape[0]):
                 delta = delta_values[j, i]
@@ -476,6 +488,8 @@ class LinearDS2GSNodesPert(LinearDS2GS):
                 com_nodes, = np.asarray(G.info['node_com'] == com_j).nonzero()
                 for n in rm_nodes:
                     com_nodes = np.delete(com_nodes, np.where(com_nodes == n))
+                if i==0:
+                    print('comm nodes', com_nodes)
                 rand_index = np.random.randint(0, len(com_nodes))
                 Sx[com_nodes[rand_index], i] = delta
                 Sy[com_nodes[rand_index], i] = delta

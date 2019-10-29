@@ -15,11 +15,11 @@ SEED = 15
 
 
 # TODO: test graph creation --> check graphs are symm
-class PerturbatedGraphsTest(unittest.TestCase):
+class LinkPerturbatedGraphsTest(unittest.TestCase):
     def setUp(self):
         np.random.seed(SEED)
         self.G_params = {}
-        self.G_params['type'] = ds.SBM # SBM or ER
+        self.G_params['type'] = ds.SBM  # SBM, ER or BA
         self.G_params['N'] = self.N = 256
         self.G_params['k'] = k = 4
         self.G_params['p'] = 0.20
@@ -94,6 +94,53 @@ class PerturbatedGraphsTest(unittest.TestCase):
         self.assertTrue(np.array_equal(comm_X, P.T.dot(comm_Y)))
 
 
+class NodePerturbatedGraphsTest(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(SEED)
+        self.G_params = {}
+        self.G_params['type'] = ds.SBM  # SBM, ER or BA
+        self.G_params['N'] = self.N = 256
+        self.G_params['k'] = k = 4
+        self.G_params['p'] = 0.20
+        self.G_params['q'] = 0.015/4
+        self.G_params['type_z'] = ds.RAND
+
+    def test_perturbation(self):
+        dest = 30
+        for i in range(10):
+            Gx, Gy = ds.nodes_perturbated_graphs(self.G_params, dest,
+                                                 seed=SEED)
+            Ax = Gx.W.todense()
+            Ay = Gy.W.todense()
+            Ax_rm = np.delete(Ax, Gy.info['rm_nodes'], axis=0)
+            Ax_rm = np.delete(Ax_rm, Gy.info['rm_nodes'], axis=1)
+            rm_comms = np.delete(Gx.info['node_com'], Gy.info['rm_nodes'])
+            self.assertFalse(Gx.is_directed())
+            self.assertTrue(Gx.is_connected())
+            self.assertEqual(np.sum(np.diag(Ax)), 0)
+            self.assertFalse(Gy.is_directed())
+            self.assertTrue(Gy.is_connected())
+            self.assertEqual(np.sum(np.diag(Ay)), 0)
+            self.assertEqual(Gy.N, Gx.N-dest)
+            self.assertTrue(np.array_equal(Ax_rm, Ay))
+            self.assertTrue(np.array_equal(rm_comms, Gy.info['node_com']))
+
+    def test_permute_graph(self):
+        dest = 30
+        Gx, Gy = ds.nodes_perturbated_graphs(self.G_params, dest,
+                                             perm=True, seed=SEED)
+        Ax = Gx.W.todense()
+        Ay = Gy.W.todense()
+        P = Gy.info['perm_matrix']
+        Ax_rm = np.delete(Ax, Gy.info['rm_nodes'], axis=0)
+        Ax_rm = np.delete(Ax_rm, Gy.info['rm_nodes'], axis=1)
+        rm_comms_X = np.delete(Gx.info['node_com'], Gy.info['rm_nodes'])
+        comm_Y = Gy.info['node_com']
+        self.assertFalse(np.array_equal(Ax_rm, Ay))
+        self.assertFalse(np.array_equal(rm_comms_X, comm_Y))
+        self.assertTrue(np.array_equal(np.eye(Gy.N), P.dot(P.T)))
+        self.assertTrue(np.array_equal(Ax_rm, P.T.dot(Ay).dot(P)))
+        self.assertTrue(np.array_equal(rm_comms_X, P.T.dot(comm_Y)))
 
 
 class LinearDS2GS2GSTest(unittest.TestCase):
@@ -121,14 +168,14 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         data.to_unit_norm()
         self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
 
     # TODO: check if deltas are in the comms
     def test_S_SBM(self):
@@ -138,26 +185,26 @@ class LinearDS2GS2GSTest(unittest.TestCase):
         data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         self.assertFalse(np.array_equal(data.Hx, data.Hy))
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
 
         n_delts = self.G_params['k']*2+3
         data = ds.LinearDS2GS(self.Gx, self.Gy, n_samps, L, n_delts)
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
 
     def test_state_dict(self):
         n_samps = [100, 50, 50]
@@ -210,15 +257,15 @@ class LinearDS2GS2GSTest(unittest.TestCase):
             self.assertAlmostEqual(np.linalg.norm(data.train_Y[i,:]),1)
 
 
-class LinearDS2GSLinksPert(unittest.TestCase):
+class LinearDS2GSLinksPertTest(unittest.TestCase):
     def setUp(self):
         np.random.seed(SEED)
         self.G_params = {}
         self.G_params['type'] = ds.SBM
-        self.G_params['N'] = 5  #32
-        self.G_params['k'] = 2  # 4
+        self.G_params['N'] = 32
+        self.G_params['k'] = 4
         self.G_params['p'] = 0.8
-        self.G_params['q'] = .3  # 0.1
+        self.G_params['q'] = 0.1
         self.G_params['type_z'] = ds.RAND
         self.eps1 = 5
         self.eps2 = 5
@@ -236,11 +283,11 @@ class LinearDS2GSLinksPert(unittest.TestCase):
         self.assertTrue(np.array_equal(data.test_Sx, data.test_Sy))
 
         for i in range(n_samps[0]):
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
         for i in range(n_samps[1]):
-            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
         for i in range(n_samps[2]):
-            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[0,:]!=0]), n_delts)
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
 
     def test_permutated_S(self):
         n_samps = [50, 20, 20]
@@ -257,6 +304,61 @@ class LinearDS2GSLinksPert(unittest.TestCase):
         self.assertTrue(np.array_equal(data.train_Sx, data.train_Sy.dot(P)))
         self.assertTrue(np.array_equal(data.val_Sx, data.val_Sy.dot(P)))
         self.assertTrue(np.array_equal(data.test_Sx, data.test_Sy.dot(P)))
+
+
+# TODO: test if a community is empty!
+class LinearDS2GSNodesPertTest(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(SEED)
+        self.G_params = {}
+        self.G_params['type'] = ds.SBM
+        self.G_params['N'] = 32
+        self.G_params['k'] = 4
+        self.G_params['p'] = 0.8
+        self.G_params['q'] = 0.1
+        self.G_params['type_z'] = ds.RAND
+        self.dest = 5
+        self.Gx, self.Gy = ds.nodes_perturbated_graphs(self.G_params, self.dest,
+                                                       seed=SEED)
+
+    def test_same_S(self):
+        n_samps = [100, 20, 20]
+        L = 6
+        n_delts = self.G_params['k']
+        rm_nodes = self.Gy.info['rm_nodes']
+        data = ds.LinearDS2GSNodesPert(self.Gx, self.Gy, n_samps, L, n_delts)
+        train_Sx_rm = np.delete(data.train_Sx, rm_nodes, axis=1)
+        val_Sx_rm = np.delete(data.val_Sx, rm_nodes, axis=1)
+        test_Sx_rm = np.delete(data.test_Sx, rm_nodes, axis=1)
+        self.assertFalse(np.array_equal(data.Hx, data.Hy))
+        self.assertTrue(np.array_equal(train_Sx_rm, data.train_Sy))
+        self.assertTrue(np.array_equal(val_Sx_rm, data.val_Sy))
+        self.assertTrue(np.array_equal(test_Sx_rm, data.test_Sy))
+        for i in range(n_samps[0]):
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
+        for i in range(n_samps[1]):
+            self.assertLessEqual(np.sum(data.train_Sx[i,:][data.train_Sx[i,:]!=0]), n_delts)
+        for i in range(n_samps[2]):
+            self.assertLessEqual(np.sum(data.train_Sy[i,:][data.train_Sy[i,:]!=0]), n_delts)
+
+    def test_permutated_S(self):
+        n_samps = [50, 20, 20]
+        L = 6
+        n_delts = self.G_params['k']
+        Gx, Gy = ds.nodes_perturbated_graphs(self.G_params, self.dest,
+                                             perm=True, seed=SEED)
+        data = ds.LinearDS2GSNodesPert(Gx, Gy, n_samps, L, n_delts)
+        P = data.Gy.info['perm_matrix']
+        rm_nodes = Gy.info['rm_nodes']
+        train_Sx_rm = np.delete(data.train_Sx, rm_nodes, axis=1)
+        val_Sx_rm = np.delete(data.val_Sx, rm_nodes, axis=1)
+        test_Sx_rm = np.delete(data.test_Sx, rm_nodes, axis=1)
+        self.assertFalse(np.array_equal(train_Sx_rm, data.train_Sy))
+        self.assertFalse(np.array_equal(val_Sx_rm, data.val_Sy))
+        self.assertFalse(np.array_equal(test_Sx_rm, data.test_Sy))
+        self.assertTrue(np.array_equal(train_Sx_rm, data.train_Sy.dot(P)))
+        self.assertTrue(np.array_equal(val_Sx_rm, data.val_Sy.dot(P)))
+        self.assertTrue(np.array_equal(test_Sx_rm, data.test_Sy.dot(P)))
 
 
 class GraphClustSizesTest(unittest.TestCase):
