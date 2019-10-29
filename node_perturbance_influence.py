@@ -111,7 +111,9 @@ def run(id, Gs, signals, lrn, pert):
         Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], pert, seed=SEED)
     elif Gs['params']['type'] == ds.BA:
         Gx = ds.create_graph(Gs['params'], SEED)
-        Gy = ds.create_graph(Gs['params'], 2*SEED)
+        G_params_y = Gs['params'].copy()
+        G_params_y['N'] = Gs['params']['N'] - pert
+        Gy = ds.create_graph(G_params_y, 2*SEED)
     else:
         raise RuntimeError("Choose a valid graph type")
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
@@ -130,7 +132,6 @@ def run(id, Gs, signals, lrn, pert):
         if exp['type'] == 'Linear':
             model = LinearModel(exp['N'])
         elif exp['type'] == 'Enc_Dec':
-            continue
             exp['n_dec'][-1] = Gy.N
             clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
                                                  k=exp['n_enc'][-1],
@@ -176,7 +177,7 @@ if __name__ == '__main__':
     Gs = {}
     Gs['n_graphs'] = 25
     G_params = {}
-    G_params['type'] = ds.SBM
+    G_params['type'] = ds.BA
     G_params['N'] = N = 256
     if G_params['type'] == ds.SBM:
         G_params['k'] = k = 4

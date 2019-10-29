@@ -479,7 +479,6 @@ class LinearDS2GSNodesPert(LinearDS2GS):
                 rand_index = np.random.randint(0, len(com_nodes))
                 Sx[com_nodes[rand_index], i] = delta
                 Sy[com_nodes[rand_index], i] = delta
-        raise RuntimeError
         Sy = np.delete(Sy, rm_nodes, axis=0)
         return Sx.T, Sy.T
 
