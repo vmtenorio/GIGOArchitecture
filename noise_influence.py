@@ -19,19 +19,19 @@ VERBOSE = False
 SAVE = True
 SAVE_PATH = './results/noise'
 EVAL_F = 5
-P_N = [0, .025, .05, 0.75, .1, .125, .15, .175, .2]
+P_N = [0, .025, .05, 0.75, .1]
 
 
 # Different size: 30 nodos menos
 EXPS = [{'type': 'AutoFC',
          'n_enc': [256, 1],
-         'n_dec': [1, 256],
+         'n_dec': [1, 226],
          'bias': True},
         {'type': 'Enc_Dec',  # Original
          'f_enc': [1, 5, 5, 5, 5, 5, 5],
          'n_enc': [256, 128, 64, 32, 16, 8, 4],
          'f_dec': [5, 5, 5, 5, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 128, 256],
+         'n_dec': [4, 8, 16, 32, 64, 128, 226],
          'f_conv': [5, 5, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -44,7 +44,7 @@ EXPS = [{'type': 'AutoFC',
          'f_enc': [1, 3, 5, 5, 5, 5],
          'n_enc': [256, 128, 64, 16, 8, 4],
          'f_dec': [5, 5, 5, 5, 3, 3],
-         'n_dec': [4, 8, 16, 64, 128, 256],
+         'n_dec': [4, 8, 16, 64, 128, 226],
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -57,7 +57,7 @@ EXPS = [{'type': 'AutoFC',
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [256, 64, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 64, 256],
+         'n_dec': [4, 8, 16, 64, 226],
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
          'downs': gc.WEI},
@@ -76,7 +76,9 @@ def run(id, Gs, signals, lrn, p_n):
         Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED)
     elif Gs['params']['type'] == ds.BA:
         Gx = ds.create_graph(Gs['params'], SEED)
-        Gy = ds.create_graph(Gs['params'], 2*SEED)
+        G_params_y = Gs['params'].copy()
+        G_params_y['N'] = Gs['params']['N'] - Gs['pert']
+        Gy = ds.create_graph(G_params_y, 2*SEED)
     else:
         raise RuntimeError("Choose a valid graph type")
     data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
@@ -113,9 +115,6 @@ def run(id, Gs, signals, lrn, p_n):
                                       last_act_fn=lrn['laf'], ups=exp['ups'],
                                       downs=exp['downs'])
         elif exp['type'] == 'AutoConv':
-            # TODO: this is not working as the final lenght is 226 and N = 256
-            # Skip it for now
-            continue
             net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
                                   exp['f_dec'], exp['kernel_dec'])
         elif exp['type'] == 'AutoFC':
