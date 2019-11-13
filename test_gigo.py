@@ -65,7 +65,7 @@ decay_rate = 0.99
 #nonlin = nn.ReLU
 nonlin = nn.Tanh
 
-# Define the datamodel
+# Define the data model
 if dataset_sel == "sourceloc":
     dataset = data_sets.GIGOSourceLoc(N, c, p_ii_SBM, p_ij_SBM, N_samples, \
                                 maxdiff, train_test_coef)

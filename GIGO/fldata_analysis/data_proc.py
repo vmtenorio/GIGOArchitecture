@@ -11,13 +11,13 @@ if os.name == 'nt':
     MAIN_PATH = '\\\\192.168.1.35\\Share\\Aero_TFG\\'
     slash = '\\'
 else:
-    MAIN_PATH = '/shared/Aero_TFG/'
+    MAIN_PATH = '/home/victor/Aero_TFG/'
     slash = '/'
 DATA_PATH = MAIN_PATH + 'Datasets' + slash
 OUT_PATH = MAIN_PATH + 'DataProc' + slash
 DEBUG = True
 log = open(OUT_PATH + 'log.txt', 'w')
-#today = datetime.now().strftime('%Y%m{}-%H%M%')
+# today = datetime.now().strftime('%Y%m{}-%H%M%')
 
 loaded = False
 
@@ -33,8 +33,8 @@ for dirname, dirs, files in os.walk(DATA_PATH):
         log.write("{}: {} flights read\n".format(d, str(len(df_aux.index))))
         dfs.append(df_aux)
 df = pd.concat(dfs)
-#df = pd.read_csv(DATA_PATH + jan_2019 + filename, dtype={'CRS_DEP_TIME': str})
-#df = pd.read_csv('/home/meri/Escritorio/TFG Victor/TFG Aero/Data/517211445_T_ONTIME_REPORTING.csv')
+# df = pd.read_csv(DATA_PATH + jan_2019 + filename, dtype={'CRS_DEP_TIME': str})
+# df = pd.read_csv('/home/meri/Escritorio/TFG Victor/TFG Aero/Data/517211445_T_ONTIME_REPORTING.csv')
 print('DONE - Entries read: ' + str(len(df.index)), flush=True)
 
 # Preprocessing

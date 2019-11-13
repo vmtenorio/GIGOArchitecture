@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 import time
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 import copy
 
 DEBUG = False
@@ -54,7 +54,7 @@ class Model:
             for j in range(1, num_steps + 1):
                 idx = np.random.permutation(n_samples)[0:self.batch_size]
 
-                batch_data = data[idx,:]
+                batch_data = data[idx, :]
                 batch_labels = labels[idx]
 
                 # Reset gradients
@@ -65,7 +65,7 @@ class Model:
             self.scheduler.step()
 
             # Samuel's early stopping
-            if self.max_non_dec != None:
+            if self.max_non_dec is not None:
                 loss, acc, mean_err = self.predict(val_data, val_labels, i)
                 if loss.data*1.005 < best_err:
                     best_err = loss.data
@@ -145,16 +145,17 @@ class Model:
                 # Samuel mean norm error
                 y_pred_np = y_pred.detach().numpy()
                 labels_np = labels.detach().numpy()
-                #print(y_pred_np, labels_np)
-                norm_error = np.sum((y_pred_np-labels_np)**2,axis=1)/np.linalg.norm(labels_np,axis=1)
+                # print(y_pred_np, labels_np)
+                norm_error = np.sum((y_pred_np-labels_np)**2, axis=1)/np.linalg.norm(labels_np, axis=1)**2
                 mean_norm_error = np.mean(norm_error)
+                median_norm_error = np.median(norm_error)
 
-        return mse_loss, acc, mean_norm_error
+        return mse_loss, acc, median_norm_error
 
     def eval(self, train_data, train_labels, val_data, val_labels, test_data, test_labels):
         if self.tb_log:
             self.writer = SummaryWriter()
-            #self.writer.add_graph(self.arch)
+            # self.writer.add_graph(self.arch)
 
         self.class_type = len(train_labels.shape) == 1    # If labels just have the
         # train data dimension, it is a classification problem

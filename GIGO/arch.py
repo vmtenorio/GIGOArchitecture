@@ -6,6 +6,7 @@ import numpy as np
 
 DEBUG = False
 
+
 class GIGOArch(nn.Module):
     def __init__(self,
                 Si,         # GSO of the input graph
@@ -15,7 +16,7 @@ class GIGOArch(nn.Module):
                 Ki,         # Filter taps in each graph filter layer for the input graph
                 Ko,         # Filter taps in each graph filter layer for the output graph
                 C,          # Convolutional layers
-                #M,          # Neurons in each fully connected layer (list)
+                # M,          # Neurons in each fully connected layer (list)
                 nonlin,     # Non linearity function
                 batch_norm, # Whether or not to apply batch normalization
                 arch_info):
@@ -39,7 +40,7 @@ class GIGOArch(nn.Module):
         self.Ki = Ki
         self.Ko = Ko
         self.C = C
-        #self.M = M
+        # self.M = M
         self.nonlin = nonlin
         self.batch_norm = batch_norm
         self.l_param = []
@@ -84,9 +85,10 @@ class GIGOArch(nn.Module):
 
         self.conv1d = []
         for c in range(len(C) - 1):
-            self.conv1d.append(nn.Conv1d(self.C[c], self.C[c+1], kernel_size=1, bias=False))
+            self.conv1d.append(nn.Conv1d(self.C[c], self.C[c+1], kernel_size=1, bias=True))
             self.l_param.append('weights_C_' + str(c))
-            self.n_params += self.C[c] * self.C[c+1]
+            self.l_param.append('bias_c_' + str(c))
+            self.n_params += self.C[c] * self.C[c+1] + self.C[c+1]
 
         self.conv1d_l = nn.Sequential(*self.conv1d)
 
@@ -99,7 +101,7 @@ class GIGOArch(nn.Module):
 
     def forward(self, x):
 
-        #Check type
+        # Check type
         if type(x) != torch.FloatTensor:
             x = torch.FloatTensor(x)
 
@@ -117,8 +119,8 @@ class GIGOArch(nn.Module):
             x = x.unsqueeze(2)
             assert self.Fi[0] == 1
 
-        #print('Starting')
-        #print(x)
+        # print('Starting')
+        # print(x)
         # Define the forward pass
         # Graph filter layers
         # Goes from TxNxF[0] to TxNxF[-1] with GFL
@@ -126,12 +128,12 @@ class GIGOArch(nn.Module):
         # y shape should be T x Ni x No
         assert y.shape[2] == self.No
 
-        y = y.permute(0,2,1)
+        y = y.permute(0, 2, 1)
 
         y = self.GFLo(y)
-        #print('End')
-        #print(y)
-        y = y.permute(0,2,1)
+        # print('End')
+        # print(y)
+        y = y.permute(0, 2, 1)
         y = self.conv1d_l(y)
 
         return torch.squeeze(y, dim=1)
@@ -147,7 +149,7 @@ class BasicArch(nn.Module):
                 arch_info): # Print architecture information
         super(BasicArch, self).__init__()
         # In python 3
-        #super()
+        # super()
 
         # Define parameters
         if type(S) != torch.FloatTensor:
@@ -228,7 +230,7 @@ class BasicArch(nn.Module):
         # Goes from TxNxF[0] to TxNxF[-1] with GFL
         y = self.GFL(x)
 
-        #return y.squeeze(2)
+        # return y.squeeze(2)
 
         y = y.reshape([T, self.N*self.F[-1]])
 
