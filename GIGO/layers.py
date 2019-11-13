@@ -23,8 +23,8 @@ class GraphFilter(nn.Module):
         self.weights = nn.parameter.Parameter(torch.Tensor(self.Fin*self.K, self.Fout))
         stdv = 1. / math.sqrt(self.Fin * self.K)
         self.weights.data.uniform_(-stdv, stdv)
-        self.bias = nn.parameter.Parameter(torch.Tensor(1, self.N, self.Fout))
-        self.bias.data.uniform_(-stdv, stdv)
+        # self.bias = nn.parameter.Parameter(torch.Tensor(1, self.N, self.Fout))
+        # self.bias.data.uniform_(-stdv, stdv)
         torch.set_printoptions(threshold=100)
 
     def forward(self, x):
@@ -40,7 +40,7 @@ class GraphFilter(nn.Module):
             print('Weights - ')
             print(self.weights)
             print('Bias - ')
-            print(self.bias)
+            # print(self.bias)
             print('Graph - ')
             print(self.S)
 
@@ -88,7 +88,7 @@ class GraphFilter(nn.Module):
             print('Y before bias-')
             print(y.shape)
             print(y)
-        y = y + self.bias
+        # y = y + self.bias
         if DEBUG:
             print('Y end-')
             print(y.shape)

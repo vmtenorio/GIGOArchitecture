@@ -36,6 +36,9 @@ class Model:
             for p in self.arch.parameters():
                 p.register_hook(lambda grad: print(grad))
 
+    def count_params(self):
+        return sum(p.numel() for p in self.arch.parameters() if p.requires_grad)
+
     def fit(self, data, labels, val_data, val_labels):
         """
         Train the model

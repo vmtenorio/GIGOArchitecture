@@ -73,8 +73,9 @@ class GIGOArch(nn.Module):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
             gflo.append(layers.GraphFilter(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
-            if l < len(self.Fo) -1:
-                gflo.append(self.nonlin())
+            # if l < len(self.Fo) -1:
+            #     gflo.append(self.nonlin())
+            gflo.append(self.nonlin())
             if self.batch_norm:
                 gfli.append(nn.BatchNorm1d(self.No))
             self.l_param.append('weights_gfo_' + str(l))
@@ -86,6 +87,7 @@ class GIGOArch(nn.Module):
         self.conv1d = []
         for c in range(len(C) - 1):
             self.conv1d.append(nn.Conv1d(self.C[c], self.C[c+1], kernel_size=1, bias=True))
+            self.conv1d.append(self.nonlin())
             self.l_param.append('weights_C_' + str(c))
             self.l_param.append('bias_c_' + str(c))
             self.n_params += self.C[c] * self.C[c+1] + self.C[c+1]
