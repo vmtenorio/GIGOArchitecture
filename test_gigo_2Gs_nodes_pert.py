@@ -24,7 +24,7 @@ N_graphs = 5
 L_filter = 6
 
 num_epochs = 100
-batch_size = 50
+batch_size = 10
 max_non_dec = 5
 
 # Graph parameters
@@ -38,10 +38,10 @@ G_params['p'] = [0.6, 0.7, 0.6, 0.8]
 G_params['q'] = 0.2
 G_params['type_z'] = data_sets.RAND
 
-mod_type = "link_pert"
+mod_type = "nodes_pert"
 Gs = {}
 Gs['params'] = G_params
-Gs['perm'] = True
+Gs['perm'] = False
 if mod_type == "nodes_pert":
     Gs['pert'] = 30
 else:
@@ -59,7 +59,7 @@ median = True
 # NN Parameters
 Ki = 2
 Ko = 2
-Fi = [1, int(N/2), N]
+Fi = [1, int(N/2), N-Gs['pert']]
 Fo = [N, int(N/2), int(N/4)]
 C = [Fo[-1], int(N/4), 1]
 nonlin_s = "tanh"
@@ -96,20 +96,17 @@ model_param['verb'] = VERB
 
 
 def test_model(Gs, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param):
-    Gx, Gy = data_sets.perturbated_graphs(Gs['params'], Gs['eps1'], Gs['eps2'],
-                                          perm=Gs['perm'], seed=SEED)
+    Gx, Gy = data_sets.nodes_perturbated_graphs(Gs['params'], Gs['pert'],
+                                                perm=Gs['perm'], seed=SEED)
 
     # Define the data model
-    data = data_sets.LinearDS2GSLinksPert(Gx, Gy, N_samples, L_filter, G_params['k']) # Last argument is n_delts
+    data = data_sets.LinearDS2GSNodesPert(Gx, Gy, N_samples, L_filter, G_params['k']) # Last argument is n_delts
     data.to_unit_norm()
 
     Gx.compute_laplacian('normalized')
     Gy.compute_laplacian('normalized')
 
-    # With L
     archit = GIGOArch(Gx.L.todense(), Gy.L.todense(), Fi, Fo, Ki, Ko, C, nonlin, batch_norm, ARCH_INFO)
-    # With A
-    # archit = GIGOArch(Gx.W.todense().astype(int), Gy.W.todense().astype(int), Fi, Fo, Ki, Ko, C, nonlin, batch_norm, ARCH_INFO)
 
     model_param['arch'] = archit
 
