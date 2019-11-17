@@ -1,15 +1,15 @@
 import os
 import torch.nn as nn
 import numpy as np
+import time
 
-from GIGO.model import Model
+from graph_enc_dec.model import Model, ADAM
 from graph_enc_dec import data_sets
 from GIGO.arch import GIGOArch
 
 from multiprocessing import Pool, cpu_count
 
 SEED = None
-TB_LOG = False
 VERB = True
 ARCH_INFO = True
 N_CPUS = cpu_count()
@@ -73,26 +73,21 @@ batch_norm = False
 
 loss_func = nn.MSELoss()
 
-optimizer = "ADAM"
+optimizer = ADAM
 learning_rate = 0.01
-beta1 = 0.9
-beta2 = 0.999
 decay_rate = 0.99
 
 model_param = {}
 
-model_param['optimizer'] = optimizer
+model_param['opt'] = optimizer
 model_param['learning_rate'] = learning_rate
-model_param['beta1'] = beta1
-model_param['beta2'] = beta2
 model_param['decay_rate'] = decay_rate
 model_param['loss_func'] = loss_func
-model_param['num_epochs'] = num_epochs
+model_param['epochs'] = num_epochs
 model_param['batch_size'] = batch_size
 model_param['eval_freq'] = eval_freq
 model_param['max_non_dec'] = max_non_dec
-model_param['tb_log'] = TB_LOG
-model_param['verb'] = VERB
+model_param['verbose'] = VERB
 
 
 def test_model(Gs, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param):
@@ -102,6 +97,8 @@ def test_model(Gs, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param):
     # Define the data model
     data = data_sets.LinearDS2GSLinksPert(Gx, Gy, N_samples, L_filter, G_params['k']) # Last argument is n_delts
     data.to_unit_norm()
+    # data.add_noise(signals['noise'], test_only=signals['test_only']) # For future tests
+    data.to_tensor()
 
     Gx.compute_laplacian('normalized')
     Gy.compute_laplacian('normalized')
@@ -114,11 +111,12 @@ def test_model(Gs, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param):
     model_param['arch'] = archit
 
     model = Model(**model_param)
-    mse_loss, _, mean_norm_err = model.eval(data.train_X, data.train_Y, data.val_X, data.val_Y, data.test_X, data.test_Y)
+    t_init = time.time()
+    epochs, _, _ = model.fit(data.train_X, data.train_Y, data.val_X, data.val_Y)
+    t_conv = time.time() - t_init
+    mean_err, med_err, mse = model.test(data.test_X, data.test_Y)
 
-    print('Real parameters:', model.count_params())
-
-    return mse_loss, mean_norm_err, model.count_params(), model.t_conv, model.epochs_conv
+    return mse, med_err, mean_err, model.count_params(), t_conv, epochs
 
 
 if __name__ == '__main__':
@@ -129,18 +127,19 @@ if __name__ == '__main__':
         results.append(pool.apply_async(test_model,\
                        args=[Gs, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param]))
 
-    mean_norm_errs = np.zeros(N_graphs)
     mse_losses = np.zeros(N_graphs)
+    mean_errs = np.zeros(N_graphs)
+    med_errs = np.zeros(N_graphs)
     t_conv = np.zeros(N_graphs)
     epochs_conv = np.zeros(N_graphs)
     for ng in range(N_graphs):
         # No problem in overriding n_params, as it has always the same value
-        mse_losses[ng], mean_norm_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
+        mse_losses[ng], med_errs[ng], mean_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
 
     mse_loss = np.median(mse_losses)
-    mean_norm_err = np.mean(mean_norm_errs)
-    median_mean_norm_err = np.median(mean_norm_errs)
-    std_mean_norm_err = np.std(mean_norm_errs)
+    mean_norm_err = np.mean(med_errs)
+    median_mean_norm_err = np.median(med_errs)
+    std_mean_norm_err = np.std(med_errs)
     mean_t_conv = round(np.mean(t_conv), 6)
     mean_ep_conv = np.mean(epochs_conv)
     print("--------------------------------------Ended simulation--------------------------------------")

@@ -108,7 +108,7 @@ class GIGOArch(nn.Module):
         try:
             Fin = x.shape[1]
             xN = x.shape[2]
-            assert Fin == self.F[0]
+            assert Fin == self.Fi[0]
         except IndexError:
             xN = x.shape[1]
             Fin = 1
@@ -133,7 +133,7 @@ class GIGOArch(nn.Module):
         # print(y)
         y = self.conv1d_l(y)
 
-        return torch.squeeze(y, dim=1)
+        return y
 
 
 class BasicArch(nn.Module):

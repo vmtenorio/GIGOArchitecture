@@ -46,7 +46,7 @@ class Model:
         for i in range(1, self.epochs+1):
             t_start = time.time()
             for j in range(1, n_steps+1):
-                # Randomly seect batches
+                # Randomly select batches
                 idx = np.random.permutation(n_samples)[:self.batch_size]
                 batch_X = train_X[idx, :, :]
                 batch_Y = train_Y[idx, :, :]
