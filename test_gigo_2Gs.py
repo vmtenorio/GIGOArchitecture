@@ -10,7 +10,7 @@ from multiprocessing import Pool, cpu_count
 
 SEED = None
 TB_LOG = False
-VERB = False
+VERB = True
 ARCH_INFO = True
 N_CPUS = cpu_count()
 
@@ -118,7 +118,7 @@ def test_model(Gs, N_samples, L_filter, Fi, Fo, Ki, Ko, C, nonlin, model_param):
 
     print('Real parameters:', model.count_params())
 
-    return mse_loss, mean_norm_err, archit.n_params, model.t_conv, model.epochs_conv
+    return mse_loss, mean_norm_err, model.count_params(), model.t_conv, model.epochs_conv
 
 
 if __name__ == '__main__':

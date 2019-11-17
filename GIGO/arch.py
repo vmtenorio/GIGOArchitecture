@@ -52,18 +52,16 @@ class GIGOArch(nn.Module):
 
         # Define the layers
         # Grahp Filter Layers for the input graph
-        self.n_params = 0
         gfli = []
         for l in range(len(self.Fi)-1):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
-            gfli.append(layers.GraphFilter(self.Si, self.Fi[l], self.Fi[l+1], self.Ki))
+            gfli.append(layers.GraphFilterUp(self.Si, self.Fi[l], self.Fi[l+1], self.Ki))
             gfli.append(self.nonlin())
             if self.batch_norm:
                 gfli.append(nn.BatchNorm1d(self.Ni))
             self.l_param.append('weights_gfi_' + str(l))
             self.l_param.append('bias_gfi_' + str(l))
-            self.n_params += self.Fi[l] * self.Fi[l+1] * self.Ki + self.Fi[l+1] * self.Ni
 
         self.GFLi = nn.Sequential(*gfli)
 
@@ -72,7 +70,7 @@ class GIGOArch(nn.Module):
         for l in range(len(self.Fo)-1):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
-            gflo.append(layers.GraphFilter(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
+            gflo.append(layers.GraphFilterDown(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
             # if l < len(self.Fo) -1:
             #     gflo.append(self.nonlin())
             gflo.append(self.nonlin())
@@ -80,7 +78,6 @@ class GIGOArch(nn.Module):
                 gfli.append(nn.BatchNorm1d(self.No))
             self.l_param.append('weights_gfo_' + str(l))
             self.l_param.append('bias_gfo_' + str(l))
-            self.n_params += self.Fo[l] * self.Fo[l+1] * self.Ko + self.Fo[l+1] * self.No
 
         self.GFLo = nn.Sequential(*gflo)
 
@@ -90,7 +87,6 @@ class GIGOArch(nn.Module):
             self.conv1d.append(self.nonlin())
             self.l_param.append('weights_C_' + str(c))
             self.l_param.append('bias_c_' + str(c))
-            self.n_params += self.C[c] * self.C[c+1] + self.C[c+1]
 
         self.conv1d_l = nn.Sequential(*self.conv1d)
 
@@ -99,7 +95,6 @@ class GIGOArch(nn.Module):
             print("Input Graph N_nodes: {}, Output graph N_nodes: {}".format(self.Ni, self.No))
             print("Fin: {}, Fout: {}, Kin: {}, Kout: {}, C: {}".format(self.Fi, self.Fo, self.Ki, self.Ko, self.C))
             print("Non lin: " + str(self.nonlin))
-            print("N params: " + str(self.n_params))
 
     def forward(self, x):
 
@@ -109,17 +104,18 @@ class GIGOArch(nn.Module):
 
         # Params
         T = x.shape[0]
-        xN = x.shape[1]
-
-        assert xN == self.Ni
 
         try:
-            Fin = x.shape[2]
+            Fin = x.shape[1]
+            xN = x.shape[2]
             assert Fin == self.F[0]
         except IndexError:
+            xN = x.shape[1]
             Fin = 1
-            x = x.unsqueeze(2)
+            x = x.unsqueeze(1)
             assert self.Fi[0] == 1
+
+        assert xN == self.Ni
 
         # print('Starting')
         # print(x)
@@ -135,7 +131,6 @@ class GIGOArch(nn.Module):
         y = self.GFLo(y)
         # print('End')
         # print(y)
-        y = y.permute(0, 2, 1)
         y = self.conv1d_l(y)
 
         return torch.squeeze(y, dim=1)

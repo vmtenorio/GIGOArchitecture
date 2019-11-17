@@ -40,7 +40,7 @@ print('DONE - Entries read: ' + str(len(df.index)), flush=True)
 # Preprocessing
 
 # Removing non-necesary columns
-df = df[['YEAR', 'MONTH', 'DAY_OF_MONTH', 'DAY_OF_WEEK', 'FL_DATE', 'CRS_DEP_TIME', 'ORIGIN_AIRPORT_ID', 'DEST_AIRPORT_ID', 'DEP_DELAY', 'ARR_DELAY']]
+df = df[['YEAR', 'MONTH', 'DAY_OF_MONTH', 'DAY_OF_WEEK', 'FL_DATE', 'CRS_DEP_TIME', 'CRS_ARR_TIME', 'ORIGIN_AIRPORT_ID', 'DEST_AIRPORT_ID', 'DEP_DELAY', 'ARR_DELAY']]
 
 print('Applying preprocessing')
 # Convert dates to datetime objects
