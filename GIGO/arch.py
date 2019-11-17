@@ -9,17 +9,19 @@ DEBUG = False
 
 class GIGOArch(nn.Module):
     def __init__(self,
-                Si,         # GSO of the input graph
-                So,         # GSO of the output graph
-                Fi,         # Features in each graph filter layer of the input graph (list)
-                Fo,         # Features in each graph filter layer of the output graph (list)
-                Ki,         # Filter taps in each graph filter layer for the input graph
-                Ko,         # Filter taps in each graph filter layer for the output graph
-                C,          # Convolutional layers
-                # M,          # Neurons in each fully connected layer (list)
-                nonlin,     # Non linearity function
-                batch_norm, # Whether or not to apply batch normalization
-                arch_info):
+                 Si,            # GSO of the input graph
+                 So,            # GSO of the output graph
+                 Fi,            # Features in each graph filter layer of the input graph (list)
+                 Fo,            # Features in each graph filter layer of the output graph (list)
+                 Ki,            # Filter taps in each graph filter layer for the input graph
+                 Ko,            # Filter taps in each graph filter layer for the output graph
+                 C,             # Convolutional layers
+                 # M,             # Neurons in each fully connected layer (list)
+                 nonlin,        # Non linearity function
+                 last_act_fn,   # Activation function in last layer
+                 batch_norm,    # Whether or not to apply batch normalization
+                 arch_info      # Whether to print the architecture information
+                 ):
         super(GIGOArch, self).__init__()
         # In python 3
         #super()
@@ -42,6 +44,7 @@ class GIGOArch(nn.Module):
         self.C = C
         # self.M = M
         self.nonlin = nonlin
+        self.last_act_fn = last_act_fn
         self.batch_norm = batch_norm
         self.l_param = []
 
@@ -84,7 +87,8 @@ class GIGOArch(nn.Module):
         self.conv1d = []
         for c in range(len(C) - 1):
             self.conv1d.append(nn.Conv1d(self.C[c], self.C[c+1], kernel_size=1, bias=True))
-            self.conv1d.append(self.nonlin())
+            if c == len(C) - 1 and last_act_fn != None:     # Last layer
+                self.conv1d.append(self.nonlin())
             self.l_param.append('weights_C_' + str(c))
             self.l_param.append('bias_c_' + str(c))
 
@@ -168,7 +172,7 @@ class BasicArch(nn.Module):
         for l in range(len(self.F)-1):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
-            gfl.append(layers.GraphFilter(self.S, self.F[l], self.F[l+1], self.K))
+            gfl.append(layers.GraphFilterUp(self.S, self.F[l], self.F[l+1], self.K))
             gfl.append(self.nonlin())
             self.l_param.append('weights_gf_' + str(l))
             self.l_param.append('bias_gf_' + str(l))
