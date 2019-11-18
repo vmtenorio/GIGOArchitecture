@@ -19,13 +19,13 @@ N_CPUS = cpu_count()
 # Data parameters
 signals = {}
 signals['N_samples'] = 2000
-signals['N_graphs'] = 20
+signals['N_graphs'] = 16
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
 
 # Graph parameters
-N = 64
+N = 128
 k = 4
 G_params = {}
 G_params['type'] = data_sets.SBM
@@ -113,6 +113,10 @@ def test_model(signals, nn_params, model_params):
     epochs, _, _ = model.fit(data.train_X, data.train_Y, data.val_X, data.val_Y)
     t_conv = time.time() - t_init
     mean_err, med_err, mse = model.test(data.test_X, data.test_Y)
+
+    print("DONE: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
+        mse, mean_err, med_err, model.count_params(), round(t_conv, 4), epochs
+    ))
 
     return mse, med_err, mean_err, model.count_params(), t_conv, epochs
 
