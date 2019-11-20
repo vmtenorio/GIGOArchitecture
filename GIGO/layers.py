@@ -96,7 +96,7 @@ class GraphFilterDown(GraphFilter):
 
         y = torch.zeros(T, self.Fout, self.N)
         for f in range(self.Fout):
-            # y_aux = torch.zeros(T, self.N)
+            y_aux = torch.zeros(T, self.N)
             for m in range(self.mult):
                 fIn = self.mult * f + m
                 xF = x[:, fIn, :]
