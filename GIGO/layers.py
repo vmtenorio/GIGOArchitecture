@@ -101,9 +101,8 @@ class GraphFilterDown(GraphFilter):
                 fIn = self.mult * f + m
                 xF = x[:, fIn, :]
                 H = self.calc_filter(fIn)
-                y[:, f, :] += torch.matmul(xF, H)/2
-
-            # y[:, f, :] = y_aux
+                y_aux += torch.matmul(xF, H)/2 
+            y[:, f, :] = y_aux
 
         return y
 
