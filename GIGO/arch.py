@@ -87,8 +87,17 @@ class GIGOArch(nn.Module):
         self.conv1d = []
         for c in range(len(C) - 1):
             self.conv1d.append(nn.Conv1d(self.C[c], self.C[c+1], kernel_size=1, bias=True))
-            if c == len(C) - 1 and last_act_fn != None:     # Last layer
+
+            if c < len(C) - 1:
                 self.conv1d.append(self.nonlin())
+            elif self.last_act_fn != None:     # Last layer
+                self.conv1d.append(self.last_act_fn())
+
+            # NOTE: the were no nonlinearities in intermediate layers and the
+            # last activation funct were the same as the intermediate
+            # if c == len(C) - 1 and last_act_fn != None:     # Last layer
+            #     self.conv1d.append(self.nonlin())
+
             self.l_param.append('weights_C_' + str(c))
             self.l_param.append('bias_c_' + str(c))
 
@@ -101,7 +110,6 @@ class GIGOArch(nn.Module):
             print("Non lin: " + str(self.nonlin))
 
     def forward(self, x):
-
         # Check type
         if type(x) != torch.FloatTensor:
             x = torch.FloatTensor(x)
