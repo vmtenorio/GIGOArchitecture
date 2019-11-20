@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import math
 
+import numpy as np
+
 DEBUG = False
+
 
 class GraphFilter(nn.Module):
     def __init__(self,
@@ -18,20 +21,16 @@ class GraphFilter(nn.Module):
         self.Fout = Fout
         self.K = K
 
-        # Calculating powers of GSO
-        self.Spow = [torch.eye(self.N)]
+        self.Spow = torch.zeros(K, self.N, self.N)
+        self.Spow[0, :, :] = torch.eye(self.N)
         for i in range(1, K):
-            self.Spow.append(torch.matmul(self.Spow[-1], self.S))
+            self.Spow[i, :, :] = torch.matmul(self.Spow[i-1, :, :], self.S)
 
     def calc_filter(self, fout):
-        H = torch.zeros(self.Spow[0].shape)
-        for k in range(self.K):
-            H += self.weights[k, fout] * self.Spow[k]
-        return H
+        return (self.weights[:, fout].view([self.K, 1, 1])*self.Spow).sum(0)
 
 
 class GraphFilterUp(GraphFilter):
-
     def __init__(self,
                  # GSO
                  S,
@@ -43,7 +42,9 @@ class GraphFilterUp(GraphFilter):
         assert Fout % Fin == 0
         self.mult = Fout // Fin
 
-        self.weights = nn.parameter.Parameter(torch.Tensor(self.K, self.Fout))
+        # self.weights = nn.Parameter(torch.Tensor(self.K, self.Fout))
+        self.weights = nn.Parameter(torch.Tensor(self.K, self.Fout))
+
         stdv = 1. / math.sqrt(self.Fin * self.K)
         self.weights.data.uniform_(-stdv, stdv)
 
@@ -59,9 +60,10 @@ class GraphFilterUp(GraphFilter):
         y = torch.zeros(T, self.Fout, self.N)
         fIn = 0
         for f in range(self.Fout):
-            xF = x[:, fIn, :].t()
+            xF = x[:, fIn, :]
+            # No need to transpose H because its symmetric
             H = self.calc_filter(f)
-            y[:, f, :] = torch.matmul(H, xF).t()
+            y[:, f, :] = torch.matmul(xF, H)
 
             if f % self.mult == self.mult - 1:
                 fIn += 1
@@ -69,7 +71,6 @@ class GraphFilterUp(GraphFilter):
 
 
 class GraphFilterDown(GraphFilter):
-
     def __init__(self,
                  # GSO
                  S,
@@ -80,7 +81,7 @@ class GraphFilterDown(GraphFilter):
         assert Fin % Fout == 0
         self.mult = Fin // Fout
 
-        self.weights = nn.parameter.Parameter(torch.Tensor(self.K, self.Fin))
+        self.weights = nn.Parameter(torch.Tensor(self.K, self.Fin))
         stdv = 1. / math.sqrt(self.Fin * self.K)
         self.weights.data.uniform_(-stdv, stdv)
 
@@ -95,14 +96,14 @@ class GraphFilterDown(GraphFilter):
 
         y = torch.zeros(T, self.Fout, self.N)
         for f in range(self.Fout):
-            y_aux = torch.zeros(T, self.N)
+            # y_aux = torch.zeros(T, self.N)
             for m in range(self.mult):
                 fIn = self.mult * f + m
-                xF = x[:, fIn, :].t()
+                xF = x[:, fIn, :]
                 H = self.calc_filter(fIn)
-                y_aux += torch.matmul(H, xF).t()
+                y[:, f, :] += torch.matmul(xF, H)/2
 
-            y[:, f, :] = y_aux
+            # y[:, f, :] = y_aux
 
         return y
 
