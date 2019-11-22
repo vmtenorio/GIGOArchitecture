@@ -3,6 +3,8 @@ import torch.nn as nn
 import math
 
 import numpy as np
+import time
+
 
 DEBUG = False
 
@@ -25,9 +27,15 @@ class GraphFilter(nn.Module):
         self.Spow[0, :, :] = torch.eye(self.N)
         for i in range(1, K):
             self.Spow[i, :, :] = torch.matmul(self.Spow[i-1, :, :], self.S)
+        self.Spow = self.Spow.repeat(max(self.Fout, self.Fin), 1, 1, 1)
 
     def calc_filter(self, fout):
-        return (self.weights[:, fout].view([self.K, 1, 1])*self.Spow).sum(0)
+        weights = self.weights[fout*self.K:fout*self.K+self.K]
+        return (weights.view([self.K, 1, 1])*self.Spow[0, :, :, :]).sum(0)
+
+    def calc_all_filters(self, F):
+        Hs = self.weights.view([F, self.K, 1, 1])*self.Spow
+        return Hs.sum(1)
 
 
 class GraphFilterUp(GraphFilter):
@@ -41,32 +49,34 @@ class GraphFilterUp(GraphFilter):
 
         assert Fout % Fin == 0
         self.mult = Fout // Fin
-
-        # self.weights = nn.Parameter(torch.Tensor(self.K, self.Fout))
-        self.weights = nn.Parameter(torch.Tensor(self.K, self.Fout))
-
+        self.weights = nn.Parameter(torch.Tensor(self.K*self.Fout))
         stdv = 1. / math.sqrt(self.Fin * self.K)
         self.weights.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
         # x shape T x Fin x N
-        T = x.shape[0]
+        # T = x.shape[0]
         xFin = x.shape[1]
         xN = x.shape[2]
 
         assert xN == self.N
         assert xFin == self.Fin
 
-        y = torch.zeros(T, self.Fout, self.N)
-        fIn = 0
-        for f in range(self.Fout):
-            xF = x[:, fIn, :]
-            # No need to transpose H because its symmetric
-            H = self.calc_filter(f)
-            y[:, f, :] = torch.matmul(xF, H)
+        Hs = self.calc_all_filters(self.Fout)
+        xF2 = x.repeat(1, self.mult, 1).permute([1, 0, 2])
+        y = torch.bmm(xF2, Hs).permute([1, 0, 2])
 
-            if f % self.mult == self.mult - 1:
-                fIn += 1
+        # ORIGINAL
+        # y2 = torch.zeros(T, self.Fout, self.N)
+        # fIn = 0
+        # for f in range(self.Fout):
+        #     xF = x[:, f % xFin, :]
+        #     H = self.calc_filter(f)
+        #     y2[:, f, :] = torch.matmul(xF, H)
+        # FOR DEBUG
+        # assert torch.all(torch.eq(y, y2)) == True
+        # y = y2
+
         return y
 
 
@@ -80,8 +90,7 @@ class GraphFilterDown(GraphFilter):
 
         assert Fin % Fout == 0
         self.mult = Fin // Fout
-
-        self.weights = nn.Parameter(torch.Tensor(self.K, self.Fin))
+        self.weights = nn.Parameter(torch.Tensor(self.K*self.Fin))
         stdv = 1. / math.sqrt(self.Fin * self.K)
         self.weights.data.uniform_(-stdv, stdv)
 
@@ -94,21 +103,36 @@ class GraphFilterDown(GraphFilter):
         assert xN == self.N
         assert xFin == self.Fin
 
-        y = torch.zeros(T, self.Fout, self.N)
-        for f in range(self.Fout):
-            y_aux = torch.zeros(T, self.N)
-            for m in range(self.mult):
-                fIn = self.mult * f + m
-                xF = x[:, fIn, :]
-                H = self.calc_filter(fIn)
-                y_aux += torch.matmul(xF, H)/2 
-            y[:, f, :] = y_aux
+        xF2 = x.permute([1, 0, 2])
+        Hs = self.calc_all_filters(self.Fin)
+        Y_aux = torch.bmm(xF2, Hs).permute([1, 0, 2])
+        # OPT1: FASTER
+        y = Y_aux.reshape(T, self.Fout, self.mult, self.N).sum(2)/self.mult
+
+        # OPT2
+        # y = torch.zeros(T, self.Fout, self.N)
+        # for f in range(self.Fout):
+        #     f_val = Y_aux[:, f*self.mult:f*self.mult+self.mult, :].sum(1)
+        #     y[:, f, :] = f_val/self.mult
+
+        # # ORIGINAL
+        # y2 = torch.zeros(T, self.Fout, self.N)
+        # for f in range(self.Fout):
+        #     y_aux = torch.zeros(T, self.N)
+        #     for m in range(self.mult):
+        #         fIn = self.mult * f + m
+        #         xF = x[:, fIn, :]
+        #         H = self.calc_filter(fIn)
+        #         y_aux += torch.matmul(xF, H)
+        #     y2[:, f, :] = y_aux/self.mult
+        # # FOR DEBUG
+        # assert torch.all(torch.eq(y, y2)) == True
+        # y = y2
 
         return y
 
 
 class GraphFilterSelective(nn.Module):
-
     def __init__(self,
                  # GSO
                  S,
