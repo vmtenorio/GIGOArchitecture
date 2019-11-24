@@ -19,7 +19,7 @@ N_CPUS = cpu_count()
 # Data parameters
 signals = {}
 signals['N_samples'] = 2000
-signals['N_graphs'] = 16
+signals['N_graphs'] = 15
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
@@ -54,11 +54,11 @@ signals['median'] = True
 
 # NN Parameters
 nn_params = {}
-nn_params['Fi'] = [1, int(N/2), N]
-nn_params['Fo'] = [N, int(N/2), int(N/4)]
-nn_params['Ki'] = 2
-nn_params['Ko'] = 2
-nn_params['C'] = [nn_params['Fo'][-1], int(N/4), 1]
+nn_params['Fi'] = [1, N]
+nn_params['Fo'] = [N, 1]
+nn_params['Ki'] = 3
+nn_params['Ko'] = 3
+nn_params['C'] = []
 nonlin_s = "tanh"
 if nonlin_s == "relu":
     nn_params['nonlin'] = nn.ReLU
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     results = []
     for ng in range(signals['N_graphs']):
         print("Started test " + str(ng))
-        results.append(pool.apply_async(test_model,\
+        results.append(pool.apply_async(test_model,
                        args=[signals, nn_params, model_params]))
 
     mse_losses = np.zeros(signals['N_graphs'])
@@ -139,7 +139,7 @@ if __name__ == '__main__':
         mse_losses[ng], med_errs[ng], mean_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
 
     mse_loss = np.median(mse_losses)
-    mean_err = np.mean(mean_errs)
+    mean_err = np.median(mean_errs)
     median_err = np.median(med_errs)
     std_err = np.std(med_errs)
     mean_t_conv = round(np.mean(t_conv), 6)
@@ -152,15 +152,15 @@ if __name__ == '__main__':
     print("Non lin: " + str(nonlin_s))
     print("N params: " + str(n_params))
     # print("MSE loss = {}".format(str(mse_losses)))
-    print("MSE loss mean = {}".format(mse_loss))
+    print("MSE loss median = {}".format(mse_loss))
     # print("Mean Squared Error = {}".format(str(mean_norm_errs)))
     print("Mean Norm Error = {}".format(mean_err))
     print("Median error = {}".format(median_err))
-    print("STD = {}".format(std_err))
+    print("STD median error = {}".format(std_err))
     print("Until convergence: Time = {} - Epochs = {}".format(mean_t_conv, mean_ep_conv))
     if not os.path.isfile('./out.csv'):
         f = open('out.csv', 'w')
-        f.write('Nodes|Communities|N samples|N graphs|' +
+        f.write('Experiment|Nodes|Communities|N samples|N graphs|' +
                 'Median|L filter|Noise|' +
                 'F in|F out|K in|K out|C|' +
                 'Non Lin|Last Act Func|' +
@@ -170,11 +170,11 @@ if __name__ == '__main__':
     else:
         f = open('out.csv', 'a')
     f.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
-                    N, k, signals['N_samples'], signals['N_graphs'],
-                    signals['median'], signals['L_filter'], signals['noise'],
-                    nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
-                    nonlin_s, nn_params['last_act_fn'],
-                    model_params['batch_size'], model_params['learning_rate'],
-                    mse_loss, mean_err, median_err, std_err,
-                    mean_t_conv, mean_ep_conv))
+            "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
+            signals['median'], signals['L_filter'], signals['noise'],
+            nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
+            nonlin_s, nn_params['last_act_fn'],
+            model_params['batch_size'], model_params['learning_rate'],
+            mse_loss, mean_err, median_err, std_err,
+            mean_t_conv, mean_ep_conv))
     f.close()

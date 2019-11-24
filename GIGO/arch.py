@@ -51,7 +51,8 @@ class GIGOArch(nn.Module):
         # Some checks to verify data integrity
         assert self.Fi[-1] == self.No
         assert self.Fo[0] == self.Ni
-        assert self.Fo[-1] == self.C[0]
+        if len(C) > 0:
+            assert self.Fo[-1] == self.C[0]
 
         # Define the layers
         # Grahp Filter Layers for the input graph
@@ -74,8 +75,6 @@ class GIGOArch(nn.Module):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
             gflo.append(layers.GraphFilterDown(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
-            # if l < len(self.Fo) -1:
-            #     gflo.append(self.nonlin())
             gflo.append(self.nonlin())
             if self.batch_norm:
                 gfli.append(nn.BatchNorm1d(self.No))
@@ -90,13 +89,8 @@ class GIGOArch(nn.Module):
 
             if c < len(C) - 1:
                 self.conv1d.append(self.nonlin())
-            elif self.last_act_fn != None:     # Last layer
+            elif self.last_act_fn is not None:     # Last layer
                 self.conv1d.append(self.last_act_fn())
-
-            # NOTE: the were no nonlinearities in intermediate layers and the
-            # last activation funct were the same as the intermediate
-            # if c == len(C) - 1 and last_act_fn != None:     # Last layer
-            #     self.conv1d.append(self.nonlin())
 
             self.l_param.append('weights_C_' + str(c))
             self.l_param.append('bias_c_' + str(c))
@@ -135,8 +129,8 @@ class GIGOArch(nn.Module):
         # Graph filter layers
         # Goes from TxNxF[0] to TxNxF[-1] with GFL
         y = self.GFLi(x)
-        # y shape should be T x Ni x No
-        assert y.shape[2] == self.No
+        # y shape should be T x No x Ni
+        assert y.shape[1] == self.No
 
         y = y.permute(0, 2, 1)
 

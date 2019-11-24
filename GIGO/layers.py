@@ -68,7 +68,6 @@ class GraphFilterUp(GraphFilter):
 
         # ORIGINAL
         # y2 = torch.zeros(T, self.Fout, self.N)
-        # fIn = 0
         # for f in range(self.Fout):
         #     xF = x[:, f % xFin, :]
         #     H = self.calc_filter(f)
