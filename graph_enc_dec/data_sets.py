@@ -480,7 +480,6 @@ class LinearDS2GSNodesPert(LinearDS2GS):
         Sx = np.zeros((G.N, n_samp))
         Sy = np.zeros((G.N, n_samp))
         rm_nodes = self.Gy.info['rm_nodes']
-        print(self.Gy.info['rm_nodes'])
         for i in range(n_samp):
             for j in range(delta_values.shape[0]):
                 delta = delta_values[j, i]
@@ -488,8 +487,7 @@ class LinearDS2GSNodesPert(LinearDS2GS):
                 com_nodes, = np.asarray(G.info['node_com'] == com_j).nonzero()
                 for n in rm_nodes:
                     com_nodes = np.delete(com_nodes, np.where(com_nodes == n))
-                if i==0:
-                    print('comm nodes', com_nodes)
+
                 rand_index = np.random.randint(0, len(com_nodes))
                 Sx[com_nodes[rand_index], i] = delta
                 Sy[com_nodes[rand_index], i] = delta

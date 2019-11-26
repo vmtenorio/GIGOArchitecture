@@ -10,34 +10,44 @@ from GIGO.arch import GIGOArch
 from multiprocessing import Pool, cpu_count
 
 SEED = None
-VERB = True
-ARCH_INFO = True
+VERB = False
+ARCH_INFO = False
 N_CPUS = cpu_count()
 
 # Parameters
 
 # Data parameters
 signals = {}
-signals['N_samples'] = 2000
-signals['N_graphs'] = 16
+signals['N_samples'] = 2000  # 2000
+signals['N_graphs'] = 25
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
 
 # Graph parameters
-N = 128
-k = 4
+# N = 128
+# k = 4
 G_params = {}
 G_params['type'] = data_sets.SBM
-G_params['N'] = N
-G_params['k'] = k
-G_params['p'] = [0.6, 0.7, 0.6, 0.8]
+# G_params['N'] = N
+# G_params['k'] = k
+# G_params['p'] = [0.6, 0.7, 0.6, 0.8]
+
+G_params['N'] = N = 128
+G_params['k'] = k = 4
+G_params['p'] = 0.3
+G_params['q'] = [[0, 0.0075, 0, 0.0],
+                 [0.0075, 0, 0.004, 0.0025],
+                 [0, 0.004, 0, 0.005],
+                 [0, 0.0025, 0.005, 0]]
+
+
 # With 64 nodes it doesn't get connected like this
 # G_params['q'] = [[0, 0.0075, 0, 0.0],
 #                  [0.0075, 0, 0.004, 0.0025],
 #                  [0, 0.004, 0, 0.005],
 #                  [0, 0.0025, 0.005, 0]]
-G_params['q'] = 0.2
+# G_params['q'] = 0.2
 G_params['type_z'] = data_sets.RAND
 signals['g_params'] = G_params
 
@@ -56,8 +66,8 @@ signals['median'] = True
 nn_params = {}
 nn_params['Fi'] = [1, int(N/2), N]
 nn_params['Fo'] = [N, int(N/2), int(N/4)]
-nn_params['Ki'] = 2
-nn_params['Ko'] = 2
+nn_params['Ki'] = 3  # 2
+nn_params['Ko'] = 3  # 2
 nn_params['C'] = [nn_params['Fo'][-1], int(N/4), 1]
 nonlin_s = "tanh"
 if nonlin_s == "relu":
@@ -80,12 +90,12 @@ model_params['decay_rate'] = 0.99
 model_params['loss_func'] = nn.MSELoss()
 model_params['epochs'] = 100
 model_params['batch_size'] = 50
-model_params['eval_freq'] = 4
-model_params['max_non_dec'] = 10
+model_params['eval_freq'] = 1
+model_params['max_non_dec'] = 5
 model_params['verbose'] = VERB
 
 
-def test_model(signals, nn_params, model_params):
+def test_model(id, signals, nn_params, model_params):
     Gx, Gy = data_sets.perturbated_graphs(signals['g_params'], signals['eps1'], signals['eps2'],
                                           pct=signals['pct'], perm=signals['perm'], seed=SEED)
 
@@ -95,6 +105,9 @@ def test_model(signals, nn_params, model_params):
                                           signals['L_filter'], signals['g_params']['k'],    # k is n_delts
                                           median=signals['median'])
     data.to_unit_norm()
+    median_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
+    print('Signal {}: distance {}'.format(id, median_dist))
+
     data.add_noise(signals['noise'], test_only=signals['test_only'])
     data.to_tensor()
 
@@ -125,9 +138,8 @@ if __name__ == '__main__':
     pool = Pool(processes=N_CPUS)
     results = []
     for ng in range(signals['N_graphs']):
-        print("Started test " + str(ng))
         results.append(pool.apply_async(test_model,\
-                       args=[signals, nn_params, model_params]))
+                       args=[ng, signals, nn_params, model_params]))
 
     mse_losses = np.zeros(signals['N_graphs'])
     mean_errs = np.zeros(signals['N_graphs'])
