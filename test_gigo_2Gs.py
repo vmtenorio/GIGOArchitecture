@@ -18,13 +18,8 @@ N_CPUS = cpu_count()
 
 # Data parameters
 signals = {}
-<<<<<<< HEAD
 signals['N_samples'] = 2000  # 2000
 signals['N_graphs'] = 25
-=======
-signals['N_samples'] = 2000
-signals['N_graphs'] = 15
->>>>>>> a7d6abb636113852ead1bc345f5ac854e5c9a35b
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
@@ -69,19 +64,11 @@ signals['median'] = True
 
 # NN Parameters
 nn_params = {}
-<<<<<<< HEAD
 nn_params['Fi'] = [1, int(N/2), N]
 nn_params['Fo'] = [N, int(N/2), int(N/4)]
 nn_params['Ki'] = 3  # 2
 nn_params['Ko'] = 3  # 2
 nn_params['C'] = [nn_params['Fo'][-1], int(N/4), 1]
-=======
-nn_params['Fi'] = [1, N]
-nn_params['Fo'] = [N, 1]
-nn_params['Ki'] = 3
-nn_params['Ko'] = 3
-nn_params['C'] = []
->>>>>>> a7d6abb636113852ead1bc345f5ac854e5c9a35b
 nonlin_s = "tanh"
 if nonlin_s == "relu":
     nn_params['nonlin'] = nn.ReLU
@@ -151,14 +138,8 @@ if __name__ == '__main__':
     pool = Pool(processes=N_CPUS)
     results = []
     for ng in range(signals['N_graphs']):
-<<<<<<< HEAD
         results.append(pool.apply_async(test_model,\
                        args=[ng, signals, nn_params, model_params]))
-=======
-        print("Started test " + str(ng))
-        results.append(pool.apply_async(test_model,
-                       args=[signals, nn_params, model_params]))
->>>>>>> a7d6abb636113852ead1bc345f5ac854e5c9a35b
 
     mse_losses = np.zeros(signals['N_graphs'])
     mean_errs = np.zeros(signals['N_graphs'])
