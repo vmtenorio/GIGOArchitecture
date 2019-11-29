@@ -52,8 +52,8 @@ signals['median'] = True
 
 # NN Parameters
 nn_params = {}
-nn_params['Fi'] = [1, int(N/8), N]
-nn_params['Fo'] = [N, int(N/8), int(N/16)]
+nn_params['Fi'] = [1, int(N/32), int(N/16), N]
+nn_params['Fo'] = [N, int(N/16), int(N/32)]
 nn_params['Ki'] = 2
 nn_params['Ko'] = 2
 nn_params['C'] = [nn_params['Fo'][-1], int(N/16), 1]
@@ -172,7 +172,7 @@ def test_arch(signals, nn_params, model_params):
                    'Mean t convergence|Mean epochs convergence\n')
     else:
         outf = open('out_hyp.csv', 'a')
-    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
             signals['eps1'], signals['noise'], signals['L_filter'], signals['noise'],
             nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],

@@ -155,7 +155,7 @@ def test_arch(signals, nn_params, model_params):
     ))
     print("-----------------------------------------------------------------------------------")
 
-    if not os.path.isfile('./out_hyp.csv'):
+    if not os.path.isfile('./out_exps.csv'):
         outf = open('out_hyp.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
                    'Perturbation|Noise|L filter|Noise|' +
@@ -165,8 +165,8 @@ def test_arch(signals, nn_params, model_params):
                    'Num Params|MSE loss|Mean err|Median err|STD Median err|' +
                    'Mean t convergence|Mean epochs convergence\n')
     else:
-        outf = open('out_hyp.csv', 'a')
-    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+        outf = open('out_exps.csv', 'a')
+    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
             signals['pert'], signals['noise'], signals['L_filter'], signals['noise'],
             nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
