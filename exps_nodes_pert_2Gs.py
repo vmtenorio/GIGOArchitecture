@@ -40,20 +40,15 @@ G_params['type_z'] = data_sets.RAND
 signals['g_params'] = G_params
 
 signals['perm'] = True
-signals['pct'] = True
-if signals['pct']:
-    signals['eps1'] = 10
-    signals['eps2'] = 10
-else:
-    signals['eps1'] = 0.1
-    signals['eps2'] = 0.3
 
 signals['median'] = True
+signals['pert'] = 30
+Nout = N - signals['pert']
 
 # NN Parameters
 nn_params = {}
-nn_params['Fi'] = [1, int(N/32), int(N/16), N]
-nn_params['Fo'] = [N, int(N/16), int(N/32)]
+nn_params['Fi'] = [1, int(Nout/2), Nout]
+nn_params['Fo'] = [N, int(N/16), int(N/32), int(N/64), 1]
 nn_params['Ki'] = 2
 nn_params['Ko'] = 2
 nn_params['C'] = [nn_params['Fo'][-1], int(N/16), 1]
@@ -89,16 +84,15 @@ model_params['verbose'] = VERB
 #           [1, int(N/64), int(N/32), int(N/16), N]]
 
 # Testing K
-param_list = [1, 2, 3, 4, 5]
+param_list = [10, 20, 30, 40, 50]
 
 def test_model(id, signals, nn_params, model_params):
-    Gx, Gy = data_sets.perturbated_graphs(signals['g_params'], signals['eps1'], signals['eps2'],
-                                          pct=signals['pct'], perm=signals['perm'])
+    Gx, Gy = data_sets.nodes_perturbated_graphs(signals['g_params'], signals['pert'],
+                                                perm=signals['perm'], seed=SEED)
 
     # Define the data model
-    data = data_sets.LinearDS2GSLinksPert(Gx, Gy,
-                                          signals['N_samples'],
-                                          signals['L_filter'], signals['g_params']['k'],    # k is n_delts
+    data = data_sets.LinearDS2GSNodesPert(Gx, Gy, signals['N_samples'],
+                                          signals['L_filter'], signals['g_params']['k'],  # k is n_delts
                                           median=signals['median'])
     data.to_unit_norm()
     data.add_noise(signals['noise'], test_only=signals['test_only'])
@@ -161,7 +155,7 @@ def test_arch(signals, nn_params, model_params):
     ))
     print("-----------------------------------------------------------------------------------")
 
-    if not os.path.isfile('./out_hyp.csv'):
+    if not os.path.isfile('./out_exps.csv'):
         outf = open('out_hyp.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
                    'Perturbation|Noise|L filter|Noise|' +
@@ -171,10 +165,10 @@ def test_arch(signals, nn_params, model_params):
                    'Num Params|MSE loss|Mean err|Median err|STD Median err|' +
                    'Mean t convergence|Mean epochs convergence\n')
     else:
-        outf = open('out_hyp.csv', 'a')
+        outf = open('out_exps.csv', 'a')
     outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
-            signals['eps1'], signals['noise'], signals['L_filter'], signals['noise'],
+            signals['pert'], signals['noise'], signals['L_filter'], signals['noise'],
             nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
             nn_params['nonlin'], nn_params['last_act_fn'],
             model_params['batch_size'], model_params['learning_rate'],
@@ -191,8 +185,9 @@ if __name__ == "__main__":
     best_param = param_list[0]
     for p in param_list:
         # Prepare here the parameter you want to test
-        nn_params['Ki'] = p
-        nn_params['Ko'] = p
+        signals['pert'] = p
+        Nout = N - p
+        nn_params['Fi'] = [1, int(Nout/2), Nout]
         # Until here
         err = test_arch(signals, nn_params, model_params)
         if err < best_err:
@@ -202,6 +197,17 @@ if __name__ == "__main__":
 
 
 #############################################
+# Test n1 paper: Delete nodes
+
+# To line 92
+# param_list = [10, 20, 30, 40, 50]
+
+# To line 188
+# signals['pert'] = p
+# Nout = N - p
+# nn_params['Fi'] = [1, int(Nout/2), Nout]
+
+#############################################
 # Test n2 paper: add noise to the signal
 
 # To line 92
@@ -209,13 +215,3 @@ if __name__ == "__main__":
 
 # To line 194
 # signals['noise'] = p
-
-
-#############################################
-# Test n3 paper: perturbate links
-# To line 92
-# param_list = [5, 10, 15, 20]
-
-# To line 194
-# signals['eps1'] = p
-# signals['eps2'] = p
