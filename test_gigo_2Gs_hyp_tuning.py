@@ -1,6 +1,5 @@
 import os
 import time
-import torch
 import torch.nn as nn
 import numpy as np
 
@@ -29,7 +28,7 @@ signals['test_only'] = True
 # Graph parameters
 G_params = {}
 G_params['type'] = data_sets.SBM
-G_params['N'] = N = 128
+G_params['N'] = N = 256
 G_params['k'] = k = 4
 G_params['p'] = 0.3
 G_params['q'] = [[0, 0.0075, 0, 0.0],
@@ -52,11 +51,11 @@ signals['median'] = True
 
 # NN Parameters
 nn_params = {}
-nn_params['Fi'] = [1, int(N/32), int(N/16), N]
-nn_params['Fo'] = [N, int(N/16), int(N/32)]
+nn_params['Fi'] = [1, 2, 4, 8, N]
+nn_params['Fo'] = [N, 8, 4, 2, 1]
 nn_params['Ki'] = 2
 nn_params['Ko'] = 2
-nn_params['C'] = [nn_params['Fo'][-1], int(N/16), 1]
+nn_params['C'] = []
 nonlin_s = "tanh"
 if nonlin_s == "relu":
     nn_params['nonlin'] = nn.ReLU
@@ -84,20 +83,20 @@ model_params['verbose'] = VERB
 
 # Hyperparameters tuning
 
-F_list = [[1, int(N/8), N],
-          [1, N],
-          [1, N],
-          [1, int(N/64), int(N/32), int(N/16), N],
-          [1, int(N/16), int(N/8), N]]
+# F_list = [[1, int(N/8), N],
+#           [1, N],
+#           [1, N],
+#           [1, int(N/64), int(N/32), int(N/16), N],
+#           [1, int(N/16), int(N/8), N]]
+#
+# C_list = [[int(N/16), int(N/8), 1],
+#           [int(N/8), int(N/16), 1],
+#           [],
+#           [],
+#           [int(N/16), int(N/16), 1]]
 
-C_list = [[int(N/16), int(N/8), 1],
-          [int(N/8), int(N/16), 1],
-          [],
-          [],
-          [int(N/16), int(N/16), 1]]
-
-# Testing K
-param_list = [1, 2, 3, 4, 5]
+# Testing perturbate links
+param_list = [5, 10, 15, 20]
 
 
 def test_model(id, signals, nn_params, model_params):
@@ -170,8 +169,8 @@ def test_arch(signals, nn_params, model_params):
     ))
     print("-----------------------------------------------------------------------------------")
 
-    if not os.path.isfile('./out_hyp.csv'):
-        outf = open('out_hyp.csv', 'w')
+    if not os.path.isfile('./out_exps.csv'):
+        outf = open('out_exps.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
                    'Perturbation|L filter|Noise|' +
                    'F in|F out|K in|K out|C|' +
@@ -180,7 +179,7 @@ def test_arch(signals, nn_params, model_params):
                    'Num Params|MSE loss|Mean err|Median err|STD Median err|' +
                    'Mean t convergence|Mean epochs convergence\n')
     else:
-        outf = open('out_hyp.csv', 'a')
+        outf = open('out_exps.csv', 'a')
     outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
             signals['eps1'], signals['L_filter'], signals['noise'],
@@ -194,29 +193,20 @@ def test_arch(signals, nn_params, model_params):
     return np.median(med_errs)        # Keeping the one with the best median error
 
 
-def get_Fout(fi, c0):
-    fi[0] = c0
-    fi.reverse()
-    return fi
-
 if __name__ == "__main__":
 
     best_err = 100000
-    best_param = 0
-    for i in range(2, len(F_list)):
+    best_param = param_list[0]
+    for p in range(param_list):
         # Prepare here the parameter you want to test
-        nn_params['Fi'] = F_list[i]
-        if len(C_list[i]) > 0:
-            nn_params['Fo'] = get_Fout(F_list[i].copy(), C_list[i][0])
-        else:
-            nn_params['Fo'] = get_Fout(F_list[i].copy(), 1)
-        nn_params['C'] = C_list[i]
+        signals['eps1'] = p
+        signals['eps2'] = p
         # Until here
         err = test_arch(signals, nn_params, model_params)
         if err < best_err:
             best_err = err
-            best_param = i
-    print("Best Parameter: F - {}, C - {}".format(F_list[best_param], C_list[best_param]))
+            best_param = p
+    # print("Best Parameter: F - {}, C - {}".format(F_list[best_param], C_list[best_param]))
 
 
 #############################################

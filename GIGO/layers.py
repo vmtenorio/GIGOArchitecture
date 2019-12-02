@@ -47,7 +47,8 @@ class GraphFilterUp(GraphFilter):
                  ):
         super(GraphFilterUp, self).__init__(S, Fin, Fout, K)
 
-        assert Fout % Fin == 0
+        #assert Fout % Fin == 0
+        assert Fout >= Fin
         self.mult = Fout // Fin
         self.weights = nn.Parameter(torch.Tensor(self.K*self.Fout))
         stdv = 1. / math.sqrt(self.Fin * self.K)
@@ -63,7 +64,7 @@ class GraphFilterUp(GraphFilter):
         assert xFin == self.Fin
 
         Hs = self.calc_all_filters(self.Fout)
-        xF2 = x.repeat(1, self.mult, 1).permute([1, 0, 2])
+        xF2 = x.repeat(1, self.mult + 1, 1)[:, :self.Fout, :].permute([1, 0, 2])
         y = torch.bmm(xF2, Hs).permute([1, 0, 2])
 
         # ORIGINAL
