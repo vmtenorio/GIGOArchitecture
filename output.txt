@@ -1,2 +1,0 @@
-Testing: F = [1, 4, 8, 128], K = 1, C = [4, 8, 1], BS = 50, LR = 0.05, Nonlin = <class 'torch.nn.modules.activation.Tanh'>
-vie nov 29 21:43:13 CET 2019
