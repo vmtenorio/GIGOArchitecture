@@ -19,7 +19,7 @@ N_CPUS = cpu_count()
 # Data parameters
 signals = {}
 signals['N_samples'] = 2000  # 2000
-signals['N_graphs'] = 25
+signals['N_graphs'] = 16
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
@@ -64,11 +64,11 @@ signals['median'] = True
 
 # NN Parameters
 nn_params = {}
-nn_params['Fi'] = [1, int(N/2), N]
-nn_params['Fo'] = [N, int(N/2), int(N/4)]
+nn_params['Fi'] = [1, int(N/16), int(N/8), N]
+nn_params['Fo'] = [N, int(N/8), int(N/16), int(N/16)]
 nn_params['Ki'] = 3  # 2
 nn_params['Ko'] = 3  # 2
-nn_params['C'] = [nn_params['Fo'][-1], int(N/4), 1]
+nn_params['C'] = [int(N/16), int(N/16), 1]
 nonlin_s = "tanh"
 if nonlin_s == "relu":
     nn_params['nonlin'] = nn.ReLU
@@ -127,8 +127,8 @@ def test_model(id, signals, nn_params, model_params):
     t_conv = time.time() - t_init
     mean_err, med_err, mse = model.test(data.test_X, data.test_Y)
 
-    print("DONE: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
-        mse, mean_err, med_err, model.count_params(), round(t_conv, 4), epochs
+    print("DONE {}: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
+        id, mse, mean_err, med_err, model.count_params(), round(t_conv, 4), epochs
     ))
 
     return mse, med_err, mean_err, model.count_params(), t_conv, epochs
@@ -138,7 +138,7 @@ if __name__ == '__main__':
     pool = Pool(processes=N_CPUS)
     results = []
     for ng in range(signals['N_graphs']):
-        results.append(pool.apply_async(test_model,\
+        results.append(pool.apply_async(test_model,
                        args=[ng, signals, nn_params, model_params]))
 
     mse_losses = np.zeros(signals['N_graphs'])
@@ -177,16 +177,16 @@ if __name__ == '__main__':
                 'F in|F out|K in|K out|C|' +
                 'Non Lin|Last Act Func|' +
                 'Batch size|Learning Rate|' +
-                'MSE loss|Mean err|Mean err|STD Median err|' +
+                'Num_params|MSE loss|Mean err|Mean err|STD Median err|' +
                 'Mean t convergence|Mean epochs convergence\n')
     else:
         f = open('out.csv', 'a')
-    f.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+    f.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
             signals['median'], signals['L_filter'], signals['noise'],
             nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
             nonlin_s, nn_params['last_act_fn'],
             model_params['batch_size'], model_params['learning_rate'],
-            mse_loss, mean_err, median_err, std_err,
+            n_params, mse_loss, mean_err, median_err, std_err,
             mean_t_conv, mean_ep_conv))
     f.close()

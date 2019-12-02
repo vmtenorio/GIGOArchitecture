@@ -42,15 +42,15 @@ signals['g_params'] = G_params
 signals['perm'] = True
 
 signals['median'] = True
-signals['pert'] = 30
+signals['pert'] = 32
 Nout = N - signals['pert']
 
 # NN Parameters
 nn_params = {}
 nn_params['Fi'] = [1, int(Nout/2), Nout]
 nn_params['Fo'] = [N, int(N/16), int(N/32), int(N/64), 1]
-nn_params['Ki'] = 2
-nn_params['Ko'] = 2
+nn_params['Ki'] = 3
+nn_params['Ko'] = 3
 nn_params['C'] = [nn_params['Fo'][-1], int(N/16), 1]
 nonlin_s = "tanh"
 if nonlin_s == "relu":
@@ -79,6 +79,24 @@ model_params['verbose'] = VERB
 
 # Hyperparameters tuning
 
+F_list = [[1, 12, Nout],
+          [1, Nout],
+          [1, Nout],
+          [1, 2, 4, 8, Nout],
+          [1, 2, 4, 8, Nout]]
+
+Fo_list = [[N, 16, int(N/16)],
+           [N, 1],
+           [N, 1],
+           [N, 8, 4, 2, 1],
+           [N, 8, 4, 2, 2]]
+
+C_list = [[int(N/16), int(N/8), 1],
+          [int(N/8), int(N/16), 1],
+          [],
+          [],
+          [2, 8, 1]]
+
 # F_list = [[1, int(N/8), N],
 #           [1, N],
 #           [1, int(N/64), int(N/32), int(N/16), N]]
@@ -86,9 +104,10 @@ model_params['verbose'] = VERB
 # Testing K
 param_list = [10, 20, 30, 40, 50]
 
+
 def test_model(id, signals, nn_params, model_params):
     Gx, Gy = data_sets.nodes_perturbated_graphs(signals['g_params'], signals['pert'],
-                                                perm=signals['perm'], seed=SEED)
+                                                perm=signals['perm'])
 
     # Define the data model
     data = data_sets.LinearDS2GSNodesPert(Gx, Gy, signals['N_samples'],
@@ -158,7 +177,7 @@ def test_arch(signals, nn_params, model_params):
     if not os.path.isfile('./out_exps.csv'):
         outf = open('out_hyp.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
-                   'Perturbation|Noise|L filter|Noise|' +
+                   'Perturbation|L filter|Noise|' +
                    'F in|F out|K in|K out|C|' +
                    'Non Lin|Last Act Func|' +
                    'Batch size|Learning Rate|' +
@@ -166,9 +185,9 @@ def test_arch(signals, nn_params, model_params):
                    'Mean t convergence|Mean epochs convergence\n')
     else:
         outf = open('out_exps.csv', 'a')
-    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
-            "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
-            signals['pert'], signals['noise'], signals['L_filter'], signals['noise'],
+    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+            "NodesPert", N, k, signals['N_samples'], signals['N_graphs'],
+            signals['pert'], signals['L_filter'], signals['noise'],
             nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
             nn_params['nonlin'], nn_params['last_act_fn'],
             model_params['batch_size'], model_params['learning_rate'],
@@ -182,12 +201,14 @@ def test_arch(signals, nn_params, model_params):
 if __name__ == "__main__":
 
     best_err = 100000
-    best_param = param_list[0]
-    for p in param_list:
+    best_param = 0
+    for p in range(len(F_list)):
         # Prepare here the parameter you want to test
-        signals['pert'] = p
-        Nout = N - p
-        nn_params['Fi'] = [1, int(Nout/2), Nout]
+        # signals['pert'] = p
+        # Nout = N - p
+        nn_params['Fi'] = F_list[p]
+        nn_params['Fo'] = Fo_list[p]
+        nn_params['C'] = C_list[p]
         # Until here
         err = test_arch(signals, nn_params, model_params)
         if err < best_err:
@@ -199,7 +220,7 @@ if __name__ == "__main__":
 #############################################
 # Test n1 paper: Delete nodes
 
-# To line 92
+# To line 87
 # param_list = [10, 20, 30, 40, 50]
 
 # To line 188
@@ -210,8 +231,8 @@ if __name__ == "__main__":
 #############################################
 # Test n2 paper: add noise to the signal
 
-# To line 92
+# To line 87
 # param_list = [0, .025, .05, 0.75, .1]
 
-# To line 194
+# To line 188
 # signals['noise'] = p

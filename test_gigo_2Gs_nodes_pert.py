@@ -46,13 +46,14 @@ signals['g_params'] = G_params
 
 signals['perm'] = True
 signals['pert'] = 30
+Nout = N - signals['pert']
 
 signals['median'] = True
 
 # NN Parameters
 nn_params = {}
-nn_params['Fi'] = [1, N - signals['pert']]
-nn_params['Fo'] = [N, 1]
+nn_params['Fi'] = [1, int(Nout/2), Nout]
+nn_params['Fo'] = [N, int(N/16), int(N/32), int(N/64), 1]
 nn_params['Ki'] = 3
 nn_params['Ko'] = 3
 nn_params['C'] = []
@@ -161,16 +162,16 @@ if __name__ == '__main__':
                 'F in|F out|K in|K out|C|' +
                 'Non Lin|Last Act Func|' +
                 'Batch size|Learning Rate|' +
-                'MSE loss|Mean err|Mean err|STD Median err|' +
+                'Num Params|MSE loss|Mean err|Mean err|STD Median err|' +
                 'Mean t convergence|Mean epochs convergence\n')
     else:
         f = open('out.csv', 'a')
-    f.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+    f.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
         "NodesPert", N, k, signals['N_samples'], signals['N_graphs'],
         signals['median'], signals['L_filter'], signals['noise'],
         nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
         nonlin_s, nn_params['last_act_fn'],
         model_params['batch_size'], model_params['learning_rate'],
-        mse_loss, mean_err, median_err, std_err,
+        n_params, mse_loss, mean_err, median_err, std_err,
         mean_t_conv, mean_ep_conv))
     f.close()

@@ -84,12 +84,21 @@ model_params['verbose'] = VERB
 
 # Hyperparameters tuning
 
-# F_list = [[1, int(N/8), N],
-#           [1, N],
-#           [1, int(N/64), int(N/32), int(N/16), N]]
+F_list = [[1, int(N/8), N],
+          [1, N],
+          [1, N],
+          [1, int(N/64), int(N/32), int(N/16), N],
+          [1, int(N/16), int(N/8), N]]
+
+C_list = [[int(N/16), int(N/8), 1],
+          [int(N/8), int(N/16), 1],
+          [],
+          [],
+          [int(N/16), int(N/16), 1]]
 
 # Testing K
 param_list = [1, 2, 3, 4, 5]
+
 
 def test_model(id, signals, nn_params, model_params):
     Gx, Gy = data_sets.perturbated_graphs(signals['g_params'], signals['eps1'], signals['eps2'],
@@ -164,7 +173,7 @@ def test_arch(signals, nn_params, model_params):
     if not os.path.isfile('./out_hyp.csv'):
         outf = open('out_hyp.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
-                   'Perturbation|Noise|L filter|Noise|' +
+                   'Perturbation|L filter|Noise|' +
                    'F in|F out|K in|K out|C|' +
                    'Non Lin|Last Act Func|' +
                    'Batch size|Learning Rate|' +
@@ -172,9 +181,9 @@ def test_arch(signals, nn_params, model_params):
                    'Mean t convergence|Mean epochs convergence\n')
     else:
         outf = open('out_hyp.csv', 'a')
-    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
-            signals['eps1'], signals['noise'], signals['L_filter'], signals['noise'],
+            signals['eps1'], signals['L_filter'], signals['noise'],
             nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
             nn_params['nonlin'], nn_params['last_act_fn'],
             model_params['batch_size'], model_params['learning_rate'],
@@ -185,20 +194,29 @@ def test_arch(signals, nn_params, model_params):
     return np.median(med_errs)        # Keeping the one with the best median error
 
 
+def get_Fout(fi, c0):
+    fi[0] = c0
+    fi.reverse()
+    return fi
+
 if __name__ == "__main__":
 
     best_err = 100000
-    best_param = param_list[0]
-    for p in param_list:
+    best_param = 0
+    for i in range(2, len(F_list)):
         # Prepare here the parameter you want to test
-        nn_params['Ki'] = p
-        nn_params['Ko'] = p
+        nn_params['Fi'] = F_list[i]
+        if len(C_list[i]) > 0:
+            nn_params['Fo'] = get_Fout(F_list[i].copy(), C_list[i][0])
+        else:
+            nn_params['Fo'] = get_Fout(F_list[i].copy(), 1)
+        nn_params['C'] = C_list[i]
         # Until here
         err = test_arch(signals, nn_params, model_params)
         if err < best_err:
             best_err = err
-            best_param = p
-    print("Best Parameter: {}".format(best_param))
+            best_param = i
+    print("Best Parameter: F - {}, C - {}".format(F_list[best_param], C_list[best_param]))
 
 
 #############################################
