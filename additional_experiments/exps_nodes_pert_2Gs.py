@@ -30,7 +30,7 @@ signals['test_only'] = True
 # Graph parameters
 G_params = {}
 G_params['type'] = data_sets.SBM
-G_params['N'] = N = 128
+G_params['N'] = N = 256
 G_params['k'] = k = 4
 G_params['p'] = 0.3
 G_params['q'] = [[0, 0.0075, 0, 0.0],
@@ -137,9 +137,9 @@ def test_model(id, signals, nn_params, model_params):
 
 def test_arch(signals, nn_params, model_params):
 
-    print("Testing: F = {}, K = {}, C = {}, BS = {}, LR = {}, Nonlin = {}".format(\
-          nn_params['Fi'], nn_params['Ki'], nn_params['C'],
-          model_params['batch_size'], model_params['learning_rate'], nn_params['nonlin']))
+    print("Testing: Fi = {}, Fo = {}, K = {}, C = {}, Noise = {}, Pert = {}".format(\
+          nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['C'],
+          signals['noise'], signals['pert']))
 
     pool = Pool(processes=N_CPUS)
 
@@ -202,6 +202,7 @@ if __name__ == "__main__":
         # signals['noise'] = p
         for i in range(len(Fo_list)):
             nn_params['Ki'] = K_list[i]
+            nn_params['Ko'] = K_list[i]
             nn_params['Fo'] = Fo_list[i]
             nn_params['C'] = C_list[i]
             err = test_arch(signals, nn_params, model_params)
@@ -210,10 +211,8 @@ if __name__ == "__main__":
 #############################################
 # Test n1 paper: Delete nodes
 
-# To line 87
 # param_list = [10, 20, 30, 40, 50]
 
-# To line 188
 # signals['pert'] = p
 # Nout = N - p
 # nn_params['Fi'] = [1, int(Nout/2), Nout]
@@ -221,8 +220,6 @@ if __name__ == "__main__":
 #############################################
 # Test n2 paper: add noise to the signal
 
-# To line 87
 # param_list = [0, .025, .05, 0.75, .1]
 
-# To line 188
 # signals['noise'] = p

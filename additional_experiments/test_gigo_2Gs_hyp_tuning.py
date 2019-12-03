@@ -141,9 +141,9 @@ def test_model(id, signals, nn_params, model_params):
 
 def test_arch(signals, nn_params, model_params):
 
-    print("Testing: F = {}, K = {}, C = {}, BS = {}, LR = {}, Nonlin = {}".format(\
-          nn_params['Fi'], nn_params['Ki'], nn_params['C'],
-          model_params['batch_size'], model_params['learning_rate'], nn_params['nonlin']))
+    print("Testing: Fi = {}, Fo = {}, K = {}, C = {}, Noise = {}, EPS = {}".format(\
+          nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['C'],
+          signals['noise'], signals['eps1']))
 
     pool = Pool(processes=N_CPUS)
 
@@ -205,6 +205,7 @@ if __name__ == "__main__":
         # signals['noise'] = p
         for i in range(len(Fo_list)):
             nn_params['Ki'] = K_list[i]
+            nn_params['Ko'] = K_list[i]
             nn_params['Fo'] = Fo_list[i]
             nn_params['C'] = C_list[i]
         err = test_arch(signals, nn_params, model_params)
@@ -213,18 +214,15 @@ if __name__ == "__main__":
 #############################################
 # Test n2 paper: add noise to the signal
 
-# To line 92
 # param_list = [0, .025, .05, 0.75, .1]
 
-# To line 194
 # signals['noise'] = p
 
 
 #############################################
 # Test n3 paper: perturbate links
-# To line 92
+
 # param_list = [5, 10, 15, 20]
 
-# To line 194
 # signals['eps1'] = p
 # signals['eps2'] = p
