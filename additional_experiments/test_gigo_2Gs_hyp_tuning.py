@@ -208,7 +208,7 @@ if __name__ == "__main__":
             nn_params['Ko'] = K_list[i]
             nn_params['Fo'] = Fo_list[i]
             nn_params['C'] = C_list[i]
-        err = test_arch(signals, nn_params, model_params)
+            err = test_arch(signals, nn_params, model_params)
 
 
 #############################################
