@@ -197,14 +197,20 @@ class GraphFilterFC(nn.Module):
         self.weights.data.uniform_(-stdv, stdv)
         # self.bias = nn.parameter.Parameter(torch.Tensor(1, self.N, self.Fout))
         # self.bias.data.uniform_(-stdv, stdv)
+
+        #Calculate powers of S
+        self.Spow = torch.zeros((self.K, self.N, self.N))
+        self.Spow[0,:,:] = torch.eye(self.N)
+        for k in range(1, K):
+            self.Spow[k,:,:] = torch.matmul(self.Spow[k-1,:,:], self.S)
         torch.set_printoptions(threshold=100)
 
     def forward(self, x):
         # x shape T x N x Fin
         # Graph filter
         T = x.shape[0]
-        xN = x.shape[1]
-        xFin = x.shape[2]
+        xFin = x.shape[1]
+        xN = x.shape[2]
         if DEBUG:
             print('Fin: ' + str(xFin))
             print('X beg-')
@@ -219,21 +225,16 @@ class GraphFilterFC(nn.Module):
         assert xN == self.N
         assert xFin == self.Fin
 
-        x = x.permute(1, 2, 0)      # N x Fin x T
+        x = x.permute(2, 1, 0)      # N x Fin x T
         x = x.reshape([self.N, self.Fin*T])
         x_list = []
-        Spow = torch.eye(self.N)
 
         for k in range(self.K):
-            x1 = torch.matmul(Spow, x)
+            x1 = torch.matmul(self.Spow[k,:,:], x)
             x_list.append(x1)
             if DEBUG:
                 print(x1)
                 print(x1.shape)
-            Spow = torch.matmul(Spow, self.S)
-            if DEBUG and False:
-                print('Power ' + str(k))
-                print(Spow)
         # x shape after loop: K x N x Fin*T
         x = torch.stack(x_list)
         if DEBUG:
@@ -256,6 +257,7 @@ class GraphFilterFC(nn.Module):
             print(y)
 
         y = y.reshape([T, self.N, self.Fout])
+        y = y.permute(0, 2, 1)
         if DEBUG:
             print('Y before bias-')
             print(y.shape)

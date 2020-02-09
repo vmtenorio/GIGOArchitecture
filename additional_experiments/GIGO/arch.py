@@ -166,19 +166,16 @@ class BasicArch(nn.Module):
         self.nonlin = nonlin
         self.l_param = []
 
-        self.n_params = 0
-
         # Define the layer
         # Grahp Filter Layers
         gfl = []
         for l in range(len(self.F)-1):
             # print("Graph filter layer: " + str(l))
             # print(str(self.F[l]) + ' x ' + str(self.F[l+1]))
-            gfl.append(layers.GraphFilterUp(self.S, self.F[l], self.F[l+1], self.K))
+            gfl.append(layers.GraphFilterFC(self.S, self.F[l], self.F[l+1], self.K))
             gfl.append(self.nonlin())
             self.l_param.append('weights_gf_' + str(l))
             self.l_param.append('bias_gf_' + str(l))
-            self.n_params += self.F[l] * self.F[l+1] * self.K + self.N * self.F[l+1]
 
         self.GFL = nn.Sequential(*gfl)
 
@@ -187,17 +184,17 @@ class BasicArch(nn.Module):
         # As last layer has no nonlin (if its softmax is done later, etc.)
         # define here the first layer before loop
         firstLayerIn = self.N*self.F[-1]
-        fcl.append(nn.Linear(firstLayerIn, self.M[0]))
-        self.l_param.append('weights_fc_0')
-        self.l_param.append('bias_fc_0')
-        for m in range(1,len(self.M)):
-            # print("FC layer: " + str(m))
-            # print(str(self.M[m-1]) + ' x ' + str(self.M[m]))
-            fcl.append(self.nonlin())
-            fcl.append(nn.Linear(self.M[m-1], self.M[m]))
-            self.l_param.append('weights_fc_' + str(m))
-            self.l_param.append('bias_fc_' + str(m))
-            self.n_params += self.M[m-1] * self.M[m] + self.M[m]
+        if len(self.M) > 0:
+            fcl.append(nn.Linear(firstLayerIn, self.M[0]))
+            self.l_param.append('weights_fc_0')
+            self.l_param.append('bias_fc_0')
+            for m in range(1,len(self.M)):
+                # print("FC layer: " + str(m))
+                # print(str(self.M[m-1]) + ' x ' + str(self.M[m]))
+                fcl.append(self.nonlin())
+                fcl.append(nn.Linear(self.M[m-1], self.M[m]))
+                self.l_param.append('weights_fc_' + str(m))
+                self.l_param.append('bias_fc_' + str(m))
 
         self.FCL = nn.Sequential(*fcl)
 
@@ -206,7 +203,6 @@ class BasicArch(nn.Module):
             print("Graph N_nodes: {}".format(self.N))
             print("F: {}, K: {}, M: {}".format(self.F, self.K, self.M))
             print("Non lin: " + str(self.nonlin))
-            print("N params: " + str(self.n_params))
 
     def forward(self, x):
 
@@ -216,26 +212,26 @@ class BasicArch(nn.Module):
 
         # Params
         T = x.shape[0]
-        xN = x.shape[1]
+        try:
+            Fin = x.shape[1]
+            xN = x.shape[2]
+            assert Fin == self.F[0]
+        except IndexError:
+            xN = x.shape[1]
+            Fin = 1
+            x = x.unsqueeze(1)
+            assert self.F[0] == 1
 
         assert xN == self.N
 
-        try:
-            Fin = x.shape[2]
-            assert Fin == self.F[0]
-        except IndexError:
-            Fin = 1
-            x = x.unsqueeze(2)
-            assert self.F[0] == 1
-
         # Define the forward pass
         # Graph filter layers
-        # Goes from TxNxF[0] to TxNxF[-1] with GFL
+        # Goes from TxF[0]xN to TxF[-1]xN with GFL
         y = self.GFL(x)
 
         # return y.squeeze(2)
 
-        y = y.reshape([T, self.N*self.F[-1]])
+        y = y.reshape([T, 1, self.N*self.F[-1]])
 
         return self.FCL(y)
 
@@ -248,21 +244,18 @@ class MLP(nn.Module):
 
         layers = []
         self.l_param = []
-        self.n_params = 0
         for l in range(len(self.F)-1):
             layers.append(nn.Linear(self.F[l], self.F[l+1]))
             if self.nonlin != None:
                 layers.append(self.nonlin())
             self.l_param.append('weights_' + str(l))
             self.l_param.append('bias_' + str(l))
-            self.n_params += self.F[l] * self.F[l+1] + self.F[l+1]
         self.MLP = nn.Sequential(*layers)
 
         if arch_info:
             print("Multi-Layer Perceptron architecture")
             print("Features: " + str(self.F))
             print("Non lin: " + str(self.nonlin))
-            print("N params: " + str(self.n_params))
 
     def forward(self, x):
         #Check type
@@ -271,32 +264,49 @@ class MLP(nn.Module):
         return self.MLP(x)
 
 class ConvNN(nn.Module):
-    def __init__(self, N, F, kernel_size, nonlin, arch_info):
+    def __init__(self, N, F, kernel_size, nonlin, M, arch_info):
         super(ConvNN, self).__init__()
         self.N = N  # For length calculation
         self.F = F
         self.kernel_size = kernel_size
         self.nonlin = nonlin
+        self.M = M
 
         layers = []
         self.l_param = []
-        self.n_params = 0
         for l in range(len(self.F)-1):
             layers.append(nn.Conv1d(self.F[l], self.F[l+1], self.kernel_size))
             layers.append(self.nonlin())
             self.l_param.append('weights_' + str(l))
             self.l_param.append('bias_' + str(l))
-            self.n_params += self.F[l] * self.F[l+1] * self.kernel_size + self.F[l+1]
         self.conv1d_nl = nn.Sequential(*layers)
 
-        self.delta_len = (self.kernel_size - 1) * (len(self.F)-1)
-        self.MLP = nn.Linear((self.N - self.delta_len)*self.F[-1], self.N)
+        # Difference between N and signal lenght at the last convolutional layer
+        self.delta_len = (self.kernel_size - 1) * (len(self.F) - 1)
+
+        # Fully connected Layers
+        fcl = []
+        # As last layer has no nonlin (if its softmax is done later, etc.)
+        # define here the first layer before loop
+        if len(self.M) > 0:
+            firstLayerIn = (self.N - self.delta_len)*self.F[-1]
+            fcl.append(nn.Linear(firstLayerIn, self.M[0]))
+            self.l_param.append('weights_fc_0')
+            self.l_param.append('bias_fc_0')
+            for m in range(1, len(self.M)):
+                # print("FC layer: " + str(m))
+                # print(str(self.M[m-1]) + ' x ' + str(self.M[m]))
+                fcl.append(self.nonlin())
+                fcl.append(nn.Linear(self.M[m - 1], self.M[m]))
+                self.l_param.append('weights_fc_' + str(m))
+                self.l_param.append('bias_fc_' + str(m))
+
+        self.FCL = nn.Sequential(*fcl)
 
         if arch_info:
             print("Convolutional architecture")
             print("Features: {}, Kernel size: {}".format(str(self.F), self.kernel_size))
             print("Non lin: " + str(self.nonlin))
-            print("N params: " + str(self.n_params))
 
     def forward(self, x):
         #Check type
@@ -319,6 +329,6 @@ class ConvNN(nn.Module):
         assert C == self.F[-1]
         assert L == self.N - self.delta_len
 
-        y = y.reshape([T, L*C])
+        y = y.reshape([T, 1, L*C])
 
-        return self.MLP(y)
+        return self.FCL(y)
