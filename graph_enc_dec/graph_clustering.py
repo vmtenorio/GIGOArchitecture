@@ -11,6 +11,7 @@ REG = 1
 NO_A = 2
 BIN = 3
 WEI = 4
+GF = 5
 
 
 # NOTE: maybe separate in 2 classes?
@@ -191,11 +192,11 @@ class MultiResGraphClustering():
 
                     if up_method == BIN and np.sum(sub_A) > 0:
                         self.As[i][j, k] = self.As[i][k, j] = 1
-                    if up_method == WEI:
+                    if up_method == WEI or up_method == GF:
                         self.As[i][j, k] = np.sum(sub_A)
                         self.As[i][k, j] = self.As[i][j, k]
                         inter_clust_links += np.sum(sub_A)
-            if up_method == WEI:
+            if up_method == WEI or up_method == GF:
                 self.As[i] = self.As[i]/inter_clust_links
         return self.As
 

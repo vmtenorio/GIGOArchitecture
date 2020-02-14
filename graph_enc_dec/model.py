@@ -15,7 +15,7 @@ class Model:
     def __init__(self, arch,
                  learning_rate=0.1, decay_rate=0.99, loss_func=nn.MSELoss(),
                  epochs=50, batch_size=100, eval_freq=5, verbose=False,
-                 max_non_dec=10, opt=ADAM):
+                 max_non_dec=10, opt=ADAM, early_stop=True):
         assert opt in [SGD, ADAM], 'Unknown optimizer type'
         self.arch = arch
         self.loss = loss_func
@@ -24,6 +24,7 @@ class Model:
         self.eval_freq = eval_freq
         self.verbose = verbose
         self.max_non_dec = max_non_dec
+        self.early_stop = early_stop
         if opt == ADAM:
             self.optim = optim.Adam(self.arch.parameters(), lr=learning_rate)
         else:
@@ -72,7 +73,7 @@ class Model:
                 best_net = copy.deepcopy(self.arch)
                 cont = 0
             else:
-                if cont >= self.max_non_dec:
+                if self.early_stop and cont >= self.max_non_dec:
                     break
                 cont += 1
 
@@ -94,7 +95,6 @@ class Model:
             print(params, "\t", self.arch.state_dict()[params].requires_grad)
 
     def test(self, test_X, test_Y):
-        self.arch.eval()
         # Ignoring dim[1] with only one channel
         shape = [test_Y.shape[0], test_Y.shape[2]]
 

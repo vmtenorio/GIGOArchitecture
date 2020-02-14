@@ -8,6 +8,9 @@ SBM = 1
 ER = 2
 BA = 3
 
+MAX_RETRIES = 20
+
+
 # Comm Node Assignment Constants
 CONT = 1    # Contiguous nodes
 ALT = 2    # Alternated nodes
@@ -66,22 +69,22 @@ def create_graph(ps, seed=None):
             z = None
         G = StochasticBlockModel(N=ps['N'], k=ps['k'], p=ps['p'], z=z,
                                  q=ps['q'], connected=True, seed=seed,
-                                 max_iter=25)
-        G.set_coordinates('community2D')
-        return G
+                                 max_iter=MAX_RETRIES)
     elif ps['type'] == ER:
         G = ErdosRenyi(N=ps['N'], p=ps['p'], connected=True, seed=seed,
-                       max_iter=25)
-        G.set_coordinates('community2D')
-        return G
+                       max_iter=MAX_RETRIES)
     elif ps['type'] == BA:
         G = BarabasiAlbert(N=ps['N'], m=ps['m'], m0=ps['m0'], seed=seed)
         G.info = {'comm_sizes': np.array([ps['N']]),
                   'node_com': np.zeros((ps['N'],), dtype=int)}
-        G.set_coordinates('spring')
-        return G
     else:
         raise RuntimeError('Unknown graph type')
+
+    assert G.is_connected(), 'Graph is not connected'
+
+    G.set_coordinates('spring')
+    G.compute_fourier_basis()
+    return G
 
 
 def perturbate_probability(Gx, eps_c, eps_d):

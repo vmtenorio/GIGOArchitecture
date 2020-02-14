@@ -4,8 +4,9 @@ import torch
 import sys
 import numpy as np
 import time
+import math
 
-from graph_enc_dec.graph_clustering import NONE, REG, NO_A, BIN, WEI
+from graph_enc_dec.graph_clustering import NONE, REG, NO_A, BIN, WEI, GF
 
 
 # NOTE: maybe is good to pass method as argument...
@@ -54,7 +55,6 @@ class GraphEncoderDecoder(nn.Module):
     def add_layer(self, module):
         self.model.add_module(str(len(self.model) + 1), module)
 
-    # TODO: create a method for testing the correct creation of the arch
     # NOTE: possibility for a section of only convolutions at the beggining
     def build_network(self):
         # Encoder Section
@@ -129,7 +129,7 @@ class GraphUpsampling(nn.Module):
     Use information from the agglomerative hierarchical clustering for
     doing the upsampling by creating the upsampling matrix U
     """
-    def __init__(self, U, A, gamma=0.5, method=WEI):  # WEI
+    def __init__(self, U, A, gamma=0.5, method=WEI, K=3):  # WEI
         # NOTE: gamma = 1 is equivalent to no_A
         super(GraphUpsampling, self).__init__()
         if A is not None:
@@ -137,7 +137,17 @@ class GraphUpsampling(nn.Module):
             self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
             if method in [BIN, WEI]:
                 self.A = gamma*np.eye(A.shape[0]) + (1-gamma)*self.A
-            self.A = Tensor(self.A)
+                self.A = Tensor(self.A.T)
+            elif method is GF:
+                N = A.shape[0]
+                self.hs = nn.Parameter(torch.Tensor(K))
+                stdv = 1. / math.sqrt(K)
+                self.hs.data.uniform_(-stdv, stdv)
+                self.A = Tensor(A.T)
+                self.K = K
+                self.Apows = torch.zeros(K, N, N)
+                for i in range(K):
+                    self.Apows[i, :, :] = torch.matrix_power(self.A, i)
 
         self.parent_size = U.shape[1]
         self.child_size = U.shape[0]
@@ -150,6 +160,9 @@ class GraphUpsampling(nn.Module):
                 output[:, i, :] = input[:, i, :].mm(self.U_T)
             elif self.method in [BIN, WEI]:
                 output[:, i, :] = input[:, i, :].mm(self.U_T).mm(self.A)
+            elif self.method is GF:
+                H = (self.hs.view([self.K, 1, 1])*self.Apows).sum(0)
+                output[:, i, :] = input[:, i, :].mm(self.U_T).mm(H)
             else:
                 raise RuntimeError('Unknown sampling method')
         return output
@@ -160,6 +173,9 @@ class GraphUpsampling(nn.Module):
                 output[i, :, :] = input[i, :, :].mm(self.U_T)
             elif self.method in [BIN, WEI]:
                 output[i, :, :] = input[i, :, :].mm(self.U_T).mm(self.A)
+            elif self.method is GF:
+                H = (self.hs.view([self.K, 1, 1])*self.Apows).sum(0)
+                output[i, :, :] = input[i, :, :].mm(self.U_T).mm(H)
             else:
                 raise RuntimeError('Unknown sampling method')
         return output
@@ -180,14 +196,24 @@ class GraphUpsampling(nn.Module):
 
 
 class GraphDownsampling(nn.Module):
-    def __init__(self, D, A, gamma=0.5, method=WEI):
+    def __init__(self, D, A, gamma=0.5, method=WEI, K=3):
         super(GraphDownsampling, self).__init__()
         if A is not None:
             assert np.allclose(A, A.T), 'A should be symmetric'
             self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
             if method in [BIN, WEI]:
                 self.A = gamma*np.eye(A.shape[0]) + (1-gamma)*self.A
-            self.A = Tensor(self.A)
+                self.A = Tensor(self.A.T)
+            elif method is GF:
+                N = A.shape[0]
+                self.hs = nn.Parameter(torch.Tensor(K))
+                stdv = 1. / math.sqrt(K)
+                self.hs.data.uniform_(-stdv, stdv)
+                self.A = Tensor(A.T)
+                self.K = K
+                self.Apows = torch.zeros(K, N, N)
+                for i in range(K):
+                    self.Apows[i, :, :] = torch.matrix_power(self.A, i)
 
         self.method = method
         self.parent_size = D.shape[1]
@@ -202,6 +228,9 @@ class GraphDownsampling(nn.Module):
                 output[:, i, :] = input[:, i, :].mm(self.D_T)
             elif self.method in [BIN, WEI]:
                 output[:, i, :] = input[:, i, :].mm(self.D_T).mm(self.A)
+            elif self.method is GF:
+                H = (self.hs.view([self.K, 1, 1])*self.Apows).sum(0)
+                output[:, i, :] = input[:, i, :].mm(self.D_T).mm(H)
             else:
                 raise RuntimeError('Unknown sampling method')
         return output
@@ -212,6 +241,9 @@ class GraphDownsampling(nn.Module):
                 output[i, :, :] = input[i, :, :].mm(self.D_T)
             elif self.method in [BIN, WEI]:
                 output[i, :, :] = input[i, :, :].mm(self.D_T).mm(self.A)
+            elif self.method is GF:
+                H = (self.hs.view([self.K, 1, 1])*self.Apows).sum(0)
+                output[i, :, :] = input[i, :, :].mm(self.D_T).mm(H)
             else:
                 raise RuntimeError('Unknown sampling method')
         return output
