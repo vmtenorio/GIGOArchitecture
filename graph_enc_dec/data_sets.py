@@ -630,15 +630,9 @@ class LinearDW2GSNodesPert(LinearDWhite2GS):
         self.train_Sx = np.random.randn(self.n_train, self.Gx.N)
         self.val_Sx = np.random.randn(self.n_val, self.Gx.N)
         self.test_Sx = np.random.randn(self.n_test, self.Gx.N)
-        self.train_Sy = np.delete(np.delete(self.train_Sx,
-                                            self.Gy.info['rm_nodes'], axis=0),
-                                  self.Gy.info['rm_nodes'], axis=1)
-        self.val_Sy = np.delete(np.delete(self.val_Sx,
-                                          self.Gy.info['rm_nodes'], axis=0),
-                                self.Gy.info['rm_nodes'], axis=1)
-        self.test_Sy = np.delete(np.delete(self.test_Sx,
-                                           self.Gy.info['rm_nodes'], axis=0),
-                                 self.Gy.info['rm_nodes'], axis=1)
+        self.train_Sy = np.delete(self.train_Sx,self.Gy.info['rm_nodes'], axis=1)
+        self.val_Sy = np.delete(self.val_Sx,self.Gy.info['rm_nodes'], axis=1)
+        self.test_Sy = np.delete(self.test_Sx,self.Gy.info['rm_nodes'], axis=1)
         if 'perm_matrix' in self.Gy.info.keys():
             self.train_Sy = self.train_Sy.dot(self.Gy.info['perm_matrix'].T)
             self.val_Sy = self.val_Sy.dot(self.Gy.info['perm_matrix'].T)
