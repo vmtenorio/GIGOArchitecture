@@ -8,6 +8,35 @@ from scipy.io import savemat
 PATH = './results/'
 
 
+def plot_overfitting(train_err, err_val, params, show=True):
+    med_train_err = np.median(train_err, axis=1)
+    med_val_err = np.median(err_val, axis=1)
+    _, ax = plt.subplots()
+    for i in range(med_train_err.shape[1]):
+        label_train = 'Train Err, P: {}'.format(params[i])
+        label_val = 'Val Err, P: {}'.format(params[i])
+        ax.semilogy(med_train_err[:, i], '-', label=label_train)
+        ax.semilogy(med_val_err[:, i], '-', label=label_val)
+
+    ax.legend()
+    plt.grid(True, which='both')
+    plt.tight_layout()
+    if show:
+        plt.show()
+
+
+def save_results(file_pref, path, data, verbose=True):
+    if not os.path.isdir(path):
+        os.makedirs(path)
+    timestamp = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M")
+    if path[-1] != '/':
+        path += '/'
+    path = path + file_pref + timestamp
+    np.save(path, data)
+    if verbose:
+        print('SAVED as:', os.getcwd(), path)
+
+
 # NOTE: maybe create a class for print/plot?
 def print_partial_results(p_n, exps, node_err, med_err):
     print('Noise:', p_n)
