@@ -8,6 +8,9 @@ SBM = 1
 ER = 2
 BA = 3
 
+MAX_RETRIES = 20
+
+
 # Comm Node Assignment Constants
 CONT = 1    # Contiguous nodes
 ALT = 2    # Alternated nodes
@@ -66,22 +69,22 @@ def create_graph(ps, seed=None):
             z = None
         G = StochasticBlockModel(N=ps['N'], k=ps['k'], p=ps['p'], z=z,
                                  q=ps['q'], connected=True, seed=seed,
-                                 max_iter=25)
-        G.set_coordinates('community2D')
-        return G
+                                 max_iter=MAX_RETRIES)
     elif ps['type'] == ER:
         G = ErdosRenyi(N=ps['N'], p=ps['p'], connected=True, seed=seed,
-                       max_iter=25)
-        G.set_coordinates('community2D')
-        return G
+                       max_iter=MAX_RETRIES)
     elif ps['type'] == BA:
         G = BarabasiAlbert(N=ps['N'], m=ps['m'], m0=ps['m0'], seed=seed)
         G.info = {'comm_sizes': np.array([ps['N']]),
                   'node_com': np.zeros((ps['N'],), dtype=int)}
-        G.set_coordinates('spring')
-        return G
     else:
         raise RuntimeError('Unknown graph type')
+
+    assert G.is_connected(), 'Graph is not connected'
+
+    G.set_coordinates('spring')
+    G.compute_fourier_basis()
+    return G
 
 
 def perturbate_probability(Gx, eps_c, eps_d):
@@ -532,3 +535,105 @@ class NonLinearDS2GS(DiffusedSparse2GS):
         for l, h in enumerate(hs):
             X_T += h*np.linalg.matrix_power(A, l).dot(np.sign(S_T)*S_T**l)
         return X_T.T
+
+
+class LinearDWhite2GS(DiffusedSparse2GS):
+    """
+    Create a graph signal in both the input and output graph by diffusing white
+    noise in all the nodes of the graph.
+    """
+    def __init__(self, Gx, Gy, n_samples, L, mean_noise, var_noise,
+                 median=True, same_coeffs=False, neg_coeffs=False):
+        super(LinearDWhite2GS, self).__init__(Gx, Gy, n_samples, L, 
+                                               n_delts=0, min_d=0, max_d=0)
+        
+        self.median = median
+        if neg_coeffs:
+            self.hx = 2 * np.random.rand(L) - 1
+            self.hy = self.hx if same_coeffs else (2 * np.random.rand(L) - 1)
+        else:
+            self.hx = np.random.rand(L)
+            self.hy = self.hx if same_coeffs else np.random.rand(L)
+        self.random_diffusing_filters()
+        self.create_samples_S(mean_noise, var_noise)
+        self.create_samples_X_Y()
+
+    def random_diffusing_filters(self):
+        """
+        Create two lineal random diffusing filters with L random coefficients
+        using the graphs shift operators from Gx and Gy.
+        Arguments:
+            - L: number of filter coeffcients
+        """
+        self.Hx = np.zeros(self.Gx.W.shape)
+        self.Hy = np.zeros(self.Gy.W.shape)
+        Sx = self.Gx.W.todense()
+        Sy = self.Gy.W.todense()
+        for l in range(self.hx.size):
+            self.Hx += self.hx[l]*np.linalg.matrix_power(Sx, l)
+            self.Hy += self.hy[l]*np.linalg.matrix_power(Sy, l)
+
+    def create_samples_S(self, mean=0, var=1):
+        self.train_Sx = np.random.randn(self.n_train, self.Gx.N)
+        self.val_Sx = np.random.randn(self.n_val, self.Gx.N)
+        self.test_Sx = np.random.randn(self.n_test, self.Gx.N)
+        self.train_Sy = np.random.randn(self.n_train, self.Gx.N)
+        self.val_Sy = np.random.randn(self.n_val, self.Gx.N)
+        self.test_Sy = np.random.randn(self.n_test, self.Gx.N)
+
+    def create_samples_X_Y(self):
+        self.train_X = self.Hx.dot(self.train_Sx.T).T
+        self.train_Y = self.Hy.dot(self.train_Sy.T).T
+        self.val_X = self.Hx.dot(self.val_Sx.T).T
+        self.val_Y = self.Hy.dot(self.val_Sy.T).T
+        self.test_X = self.Hx.dot(self.test_Sx.T).T
+        self.test_Y = self.Hy.dot(self.test_Sy.T).T
+        if self.median:
+            self.train_X = self.median_neighbours_nodes(self.train_X, self.Gx)
+            self.train_Y = self.median_neighbours_nodes(self.train_Y, self.Gy)
+            self.val_X = self.median_neighbours_nodes(self.val_X, self.Gx)
+            self.val_Y = self.median_neighbours_nodes(self.val_Y, self.Gy)
+            self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
+            self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
+
+class LinearDW2GSLinksPert(LinearDWhite2GS):
+    def __init__(self, Gx, Gy, n_samples, L, mean_noise, var_noise,
+                 median=True, same_coeffs=False, neg_coeffs=False):
+        super(LinearDW2GSLinksPert, self).__init__(Gx, Gy, n_samples, L,
+                                                   mean_noise, var_noise,
+                                                   median, same_coeffs,
+                                                   neg_coeffs)
+    
+    def create_samples_S(self, mean_noise, var_noise):
+        self.train_Sx = np.random.randn(self.n_train, self.Gx.N)
+        self.val_Sx = np.random.randn(self.n_val, self.Gx.N)
+        self.test_Sx = np.random.randn(self.n_test, self.Gx.N)
+        if 'perm_matrix' in self.Gy.info.keys():
+            self.train_Sy = self.train_Sx.dot(self.Gy.info['perm_matrix'].T)
+            self.val_Sy = self.val_Sx.dot(self.Gy.info['perm_matrix'].T)
+            self.test_Sy = self.test_Sx.dot(self.Gy.info['perm_matrix'].T)
+        else:
+            self.train_Sy = np.copy(self.train_Sx)
+            self.val_Sy = np.copy(self.val_Sx)
+            self.test_Sy = np.copy(self.test_Sx)
+
+
+class LinearDW2GSNodesPert(LinearDWhite2GS):
+    def __init__(self, Gx, Gy, n_samples, L, mean_noise, var_noise,
+                 median=True, same_coeffs=False, neg_coeffs=False):
+        super(LinearDW2GSNodesPert, self).__init__(Gx, Gy, n_samples, L,
+                                                   mean_noise, var_noise,
+                                                   median, same_coeffs,
+                                                   neg_coeffs)
+    
+    def create_samples_S(self, mean_noise, var_noise):
+        self.train_Sx = np.random.randn(self.n_train, self.Gx.N)
+        self.val_Sx = np.random.randn(self.n_val, self.Gx.N)
+        self.test_Sx = np.random.randn(self.n_test, self.Gx.N)
+        self.train_Sy = np.delete(self.train_Sx,self.Gy.info['rm_nodes'], axis=1)
+        self.val_Sy = np.delete(self.val_Sx,self.Gy.info['rm_nodes'], axis=1)
+        self.test_Sy = np.delete(self.test_Sx,self.Gy.info['rm_nodes'], axis=1)
+        if 'perm_matrix' in self.Gy.info.keys():
+            self.train_Sy = self.train_Sy.dot(self.Gy.info['perm_matrix'].T)
+            self.val_Sy = self.val_Sy.dot(self.Gy.info['perm_matrix'].T)
+            self.test_Sy = self.test_Sy.dot(self.Gy.info['perm_matrix'].T)
