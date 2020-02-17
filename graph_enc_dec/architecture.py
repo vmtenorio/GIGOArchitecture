@@ -134,7 +134,8 @@ class GraphUpsampling(nn.Module):
         super(GraphUpsampling, self).__init__()
         if A is not None:
             assert np.allclose(A, A.T), 'A should be symmetric'
-            self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
+            # self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
+            self.A = A
             if method in [BIN, WEI]:
                 self.A = gamma*np.eye(A.shape[0]) + (1-gamma)*self.A
                 self.A = Tensor(self.A.T)
@@ -143,7 +144,7 @@ class GraphUpsampling(nn.Module):
                 self.hs = nn.Parameter(torch.Tensor(K))
                 stdv = 1. / math.sqrt(K)
                 self.hs.data.uniform_(-stdv, stdv)
-                self.A = Tensor(A.T)
+                self.A = Tensor(A)
                 self.K = K
                 self.Apows = torch.zeros(K, N, N)
                 for i in range(K):
@@ -200,7 +201,8 @@ class GraphDownsampling(nn.Module):
         super(GraphDownsampling, self).__init__()
         if A is not None:
             assert np.allclose(A, A.T), 'A should be symmetric'
-            self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
+            # self.A = np.linalg.inv(np.diag(np.sum(A, 0))).dot(A)
+            self.A = A
             if method in [BIN, WEI]:
                 self.A = gamma*np.eye(A.shape[0]) + (1-gamma)*self.A
                 self.A = Tensor(self.A.T)
@@ -209,7 +211,7 @@ class GraphDownsampling(nn.Module):
                 self.hs = nn.Parameter(torch.Tensor(K))
                 stdv = 1. / math.sqrt(K)
                 self.hs.data.uniform_(-stdv, stdv)
-                self.A = Tensor(A.T)
+                self.A = Tensor(A)
                 self.K = K
                 self.Apows = torch.zeros(K, N, N)
                 for i in range(K):
