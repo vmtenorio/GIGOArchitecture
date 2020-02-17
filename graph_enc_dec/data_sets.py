@@ -596,6 +596,7 @@ class LinearDWhite2GS(DiffusedSparse2GS):
             self.test_X = self.median_neighbours_nodes(self.test_X, self.Gx)
             self.test_Y = self.median_neighbours_nodes(self.test_Y, self.Gy)
 
+
 class LinearDW2GSLinksPert(LinearDWhite2GS):
     def __init__(self, Gx, Gy, n_samples, L, mean_noise, var_noise,
                  median=True, same_coeffs=False, neg_coeffs=False):
