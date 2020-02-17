@@ -68,19 +68,22 @@ class Model:
                 predicted_Y_eval = self.arch(val_X)
                 eval_loss = self.loss(predicted_Y_eval, val_Y)
                 val_err[i-1] = eval_loss.detach().numpy()
-            if eval_loss.data*1.005 < best_err:
-                best_err = eval_loss.data
-                best_net = copy.deepcopy(self.arch)
-                cont = 0
-            else:
-                if self.early_stop and cont >= self.max_non_dec:
-                    break
-                cont += 1
+            
+            if self.early_stop:
+                if eval_loss.data*1.005 < best_err:
+                    best_err = eval_loss.data
+                    best_net = copy.deepcopy(self.arch)
+                    cont = 0
+                else:
+                    if cont >= self.max_non_dec:
+                        break
+                    cont += 1
 
             if self.verbose and i % self.eval_freq == 0:
                 print('Epoch {}/{}({:.4f}s)\tEval Loss: {:.8f}\tTrain: {:.8f}'
                       .format(i, self.epochs, t, eval_loss, training_loss))
-        self.arch = best_net
+        if best_net is not None:
+            self.arch = best_net
         return i-cont, train_err, val_err
 
     def state_dict(self):
