@@ -22,7 +22,7 @@ N_CPUS = cpu_count()
 VERBOSE = False
 SAVE = True
 EVAL_F = 5
-P_N = [0, 0.05]  # [0, .025, .05, 0.075, .1]
+P_N = [0, .025, .05, 0.075, .1]
 
 
 # Different size: 30 nodos menos
@@ -46,17 +46,27 @@ EXPS = [
          'ups': gc.GF,
          'downs': gc.GF,
          'early_stop': True,
+         'fmt': '^-'},
+        {'type': 'Enc_Dec',  # 162
+         'f_enc': [1, 3, 3, 3, 3, 3],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64, 226],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI,
+         'early_stop': True,
          'fmt': 'o--'},
-        # {'type': 'Enc_Dec',  # 162
-        #  'f_enc': [1, 3, 3, 3, 3, 3],
-        #  'n_enc': [256, 64, 32, 16, 8, 4],
-        #  'f_dec': [3, 3, 3, 3, 3, 3],
-        #  'n_dec': [4, 8, 16, 32, 64, 226],
-        #  'f_conv': [3, 3, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI,
-        #  'early_stop': True,
-        #  'fmt': 'o--'},
+        {'type': 'Enc_Dec',  # 162
+         'f_enc': [1, 3, 3, 3, 3, 3],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64, 226],
+         'f_conv': [3, 3, 1],
+         'ups': gc.GF,
+         'downs': gc.GF,
+         'early_stop': True,
+         'fmt': '^--'},
 
         {'type': 'AutoFC',  # 2641
          'n_enc': [256, 5],
@@ -64,13 +74,12 @@ EXPS = [
          'bias': True,
          'early_stop': True,
          'fmt': 'X-'},
-        # {'type': 'AutoFC',  # 709
-        #  'n_enc': [256, 1],
-        #  'n_dec': [1, 226],
-        #  'bias': True,
-        #  'early_stop': True,
-        #  'fmt': 'X--'},
-
+        {'type': 'AutoFC',  # 709
+         'n_enc': [256, 1],
+         'n_dec': [1, 226],
+         'bias': True,
+         'early_stop': True,
+         'fmt': 'X--'},
         {'type': 'AutoConv',
          'f_enc': [1, 6, 6, 6, 7, 7],
          'kernel_enc': 11,
@@ -78,13 +87,13 @@ EXPS = [
          'kernel_dec': 11,
          'early_stop': True,
          'fmt': 'P-'},
-        #  {'type': 'AutoConv',
-        #  'f_enc': [1, 1, 1, 1, 1, 2, 2, 2, 2],
-        #  'kernel_enc': 6,
-        #  'f_dec': [2, 2, 1],
-        #  'kernel_dec': 6,
-        #  'early_stop': True,
-        #  'fmt': 'P--'}
+         {'type': 'AutoConv',
+         'f_enc': [1, 1, 1, 1, 1, 2, 2, 2, 2],
+         'kernel_enc': 6,
+         'f_dec': [2, 2, 1],
+         'kernel_dec': 6,
+         'early_stop': True,
+         'fmt': 'P--'}
 
         # {'type': 'Enc_Dec',  # Original
         #  'f_enc': [1, 5, 5, 5, 5, 5, 5],
@@ -136,7 +145,8 @@ N_EXPS = len(EXPS)
 
 def run(id, Gs, Signals, lrn, p_n):
     if Gs['params']['type'] == ds.SBM:
-        Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED)
+        Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED,
+                                             perm=True)
     elif Gs['params']['type'] == ds.BA:
         Gx = ds.create_graph(Gs['params'], SEED)
         G_params_y = Gs['params'].copy()
@@ -255,13 +265,23 @@ if __name__ == '__main__':
     Signals['neg_coeffs'] = False
     Signals['test_only'] = True
 
+    # SHEL 1
+    # Parámetros previos
     Net = {}
+    # Net['laf'] = nn.Tanh()
+    # Net['af'] = nn.Tanh()
+    # Net['lr'] = 0.001  # 0.001
+    # Net['dr'] = 1  # 0.9 
+    # Net['batch'] = 50  # 10
+    # Net['epochs'] = 50
+    # Net['non_dec'] = 10
+
     Net['laf'] = nn.Tanh()
     Net['af'] = nn.Tanh()
     Net['lr'] = 0.001  # 0.001
-    Net['dr'] = 1  # 0.9 
-    Net['batch'] = 50  # 10
-    Net['epochs'] = 50
+    Net['dr'] = 0.9  # 0.9 
+    Net['batch'] = 10  # 10
+    Net['epochs'] = 100
     Net['non_dec'] = 10
 
     start_time = time.time()
