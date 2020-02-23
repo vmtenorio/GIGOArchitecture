@@ -22,66 +22,99 @@ EVAL_F = 5
 SAMPLES = [100, 500, 1000, 2000, 5000, 10000, 20000]
 
 
-EXPS = [{'type': 'AutoFC',  # 769
-         'n_enc': [256, 1],
-         'n_dec': [1, 256],
-         'bias': True},
-        {'type': 'Enc_Dec',  # 762
-         'f_enc': [1, 3, 5, 7, 7, 10, 10],
-         'n_enc': [256, 128, 64, 32, 16, 8, 4],
-         'f_dec': [10, 10, 7, 7, 5, 5, 5],
-         'n_dec': [4, 8, 16, 32, 64, 128, 256],
-         'f_conv': [5, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'AutoConv',  # 792
-         'f_enc': [1, 3, 3, 3, 5],
-         'kernel_enc': 11,
-         'f_dec': [5, 3, 3, 3, 1],
-         'kernel_dec': 11},
-        {'type': 'Enc_Dec',  # 298
-         'f_enc': [1, 3, 5, 5, 5, 5],
+PATH = './results/samples/'
+FILE_PREF = 'samples_'
+
+
+EXPS = [
+        {'type': 'Enc_Dec',  # 2610
+         'f_enc': [1, 15, 15, 15, 15, 15],
          'n_enc': [256, 64, 32, 16, 8, 4],
-         'f_dec': [5, 5, 5, 5, 3, 3],
+         'f_dec': [15, 15, 15, 15, 15, 15],
+         'n_dec': [4, 8, 16, 32, 64, 256],
+         'f_conv': [15, 15, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI,
+         'early_stop': True,
+         'fmt': 'o-'},
+        {'type': 'Enc_Dec',  # 162
+         'f_enc': [1, 3, 3, 3, 3, 3],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3, 3],
          'n_dec': [4, 8, 16, 32, 64, 256],
          'f_conv': [3, 3, 1],
          'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'AutoConv',  # 286
-         'f_enc': [1, 1, 2, 2, 3],
-         'kernel_enc': 11,
-         'f_dec': [3, 2, 2, 1, 1],
-         'kernel_dec': 11},
-        {'type': 'Enc_Dec',  # 132
-         'f_enc': [1, 3, 3, 3, 3],
-         'n_enc': [256, 64, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 64, 256],
+         'downs': gc.WEI,
+         'early_stop': True,
+         'fmt': 'o--'},
+    
+        {'type': 'Enc_Dec',  # 2610
+         'f_enc': [1, 15, 15, 15, 15, 15],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [15, 15, 15, 15, 15, 15],
+         'n_dec': [4, 8, 16, 32, 64, 256],
+         'f_conv': [15, 15, 1],
+         'ups': gc.GF,
+         'downs': gc.GF,
+         'early_stop': True,
+         'fmt': 'v-'},
+        {'type': 'Enc_Dec',  # 162
+         'f_enc': [1, 3, 3, 3, 3, 3],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64, 256],
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
-        {'type': 'AutoConv',  # 144
-         'f_enc': [1, 1, 1, 2, 2, 2],
-         'kernel_enc': 6,
-         'f_dec': [2, 2, 2, 1, 1, 1],
-         'kernel_dec': 6}]
+         'ups': gc.GF,
+         'downs': gc.GF,
+         'early_stop': True,
+         'fmt': 'v--'},
+
+        {'type': 'AutoFC',
+         'n_enc': [256, 5],
+         'n_dec': [5, 256],
+         'bias': True,
+         'early_stop': True,
+         'fmt': 'X-'},
+         {'type': 'AutoFC',
+         'n_enc': [256, 1],
+         'n_dec': [1, 256],
+         'bias': True,
+         'early_stop': True,
+         'fmt': 'X--'},
+        
+        {'type': 'AutoConv',  # 
+         'f_enc': [1, 5, 5, 6, 6],
+         'kernel_enc': 13,
+         'f_dec': [6, 6, 5, 5, 1],
+         'kernel_dec': 13,
+         'early_stop': True,
+         'fmt': 'P-'},
+         {'type': 'AutoConv',  # 
+         'f_enc': [1, 2, 3, 3],
+         'kernel_enc': 5,
+         'f_dec': [3, 3, 2, 1],
+         'kernel_dec': 5,
+         'early_stop': True,
+         'fmt': 'P--'}
+        ]
 
 
 N_EXPS = len(EXPS)
 
 
-def run(id, Gs, signals, lrn, samples):
-    Gx = ds.create_graph(Gs['params'], seed=SEED)
-    Gy = ds.create_graph(Gs['params_y'], seed=SEED)
-    data = ds.LinearDS2GS(Gx, Gy, samples, signals['L'],
-                          signals['deltas'], median=signals['median'],
-                          same_coeffs=signals['same_coeffs'])
+def run(id, Gs, Signals, lrn, samples):
+    Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['pct_val'][0], 
+                                   Gs['pct_val'][1], pct=Gs['pct'],
+                                   perm=Gs['perm'], seed=SEED)
+    data = ds.LinearDS2GSLinksPert(Gx, Gy, samples, Signals['L'],
+                                   Signals['deltas'], median=Signals['median'],
+                                   same_coeffs=Signals['same_coeffs'])
     data.to_unit_norm()
-    data.add_noise(signals['noise'], test_only=signals['test_only'])
+    data.add_noise(Signals['noise'], test_only=Signals['test_only'])
     data.to_tensor()
 
-    epochs = 0
-    mean_err = np.zeros(N_EXPS)
+    params = np.zeros(N_EXPS)
+    epochs = np.zeros(N_EXPS)
     med_err = np.zeros(N_EXPS)
     mse = np.zeros(N_EXPS)
     for i, exp in enumerate(EXPS):
@@ -100,6 +133,7 @@ def run(id, Gs, signals, lrn, samples):
                                       As_enc=clust_x.As, act_fn=lrn['af'],
                                       last_act_fn=lrn['laf'], ups=exp['ups'],
                                       downs=exp['downs'])
+
         elif exp['type'] == 'AutoConv':
             net = ConvAutoencoder(exp['f_enc'], exp['kernel_enc'],
                                   exp['f_dec'], exp['kernel_dec'])
@@ -111,13 +145,30 @@ def run(id, Gs, signals, lrn, samples):
             model = Model(net, learning_rate=lrn['lr'], decay_rate=lrn['dr'],
                           batch_size=lrn['batch'], epochs=lrn['epochs'],
                           eval_freq=EVAL_F, max_non_dec=lrn['non_dec'],
-                          verbose=VERBOSE)
-        epochs, _, _ = model.fit(data.train_X, data.train_Y, data.val_X, data.val_Y)
-        mean_err[i], med_err[i], mse[i] = model.test(data.test_X, data.test_Y)
+                          verbose=VERBOSE, early_stop=exp['early_stop'])
+        epochs[i], _, _ = model.fit(data.train_X, data.train_Y, data.val_X, data.val_Y)
+        _, med_err[i], mse[i] = model.test(data.test_X, data.test_Y)
+        params[i] = model.count_params()
         print('G: {}, {}-{} ({}): epochs {} - mse {} - MedianErr: {}'
-              .format(id, i, exp['type'], model.count_params(), epochs,
+              .format(id, i, exp['type'], params[i], epochs[i],
                       mse[i], med_err[i]))
-    return mean_err, med_err, mse
+
+    return params, med_err, mse
+
+
+def create_legend(params):
+    legend = []
+    for i, exp in enumerate(EXPS):
+        txt = ''
+        if exp['type'] is 'Enc_Dec':
+            txt = 'G-E/D-{}: Ups: {}, Down: {}, Stop: {}'
+            txt = txt.format(params[i], exp['ups'], exp['downs'], exp['early_stop'])
+        elif exp['type'] is 'AutoFC':
+            txt = 'AE-FC-{}, Stop: {}'.format(params[i], exp['early_stop'])
+        elif exp['type'] is 'AutoConv':
+            txt = 'AE-CV-{}, Stop: {}'.format(params[i], exp['early_stop'])
+        legend.append(txt)
+    return legend
 
 
 if __name__ == '__main__':
@@ -127,7 +178,7 @@ if __name__ == '__main__':
 
     # Graphs parameters
     Gs = {}
-    Gs['n_graphs'] = 25
+    Gs['n_graphs'] = 15
     G_params = {}
     G_params['type'] = ds.SBM
     G_params['N'] = N = 256
@@ -139,62 +190,68 @@ if __name__ == '__main__':
                      [0, 0.0025, 0.005, 0]]
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
-    # Gs['pert'] = 30
-
-    G_params_y = {}
-    G_params_y['type'] = G_params['type']
-    G_params_y['N'] = G_params['N']
-    G_params_y['k'] = G_params['k']
-    G_params_y['p'] = G_params['p']
-    G_params_y['q'] = G_params['q']
-    G_params_y['type_z'] = G_params['type_z']
-    Gs['params_y'] = G_params_y
+    Gs['pct'] = True
+    Gs['pct_val'] = [0, 10]
+    Gs['perm'] = True
 
     # Signals
-    signals = {}
-    signals['L'] = 6
-    signals['samples'] = SAMPLES
-    signals['deltas'] = 4
-    signals['noise'] = 0
-    signals['median'] = True
-    signals['same_coeffs'] = False
-    signals['test_only'] = True
+    Signals = {}
+    Signals['L'] = 6
+    Signals['samples'] = SAMPLES
+    Signals['deltas'] = 4
+    Signals['noise'] = 0
+    Signals['median'] = True
+    Signals['same_coeffs'] = False
+    Signals['test_only'] = True
 
-    learning = {}
-    learning['laf'] = nn.Tanh()
-    learning['af'] = nn.Tanh()
-    learning['lr'] = 0.01
-    learning['dr'] = 0.9
-    learning['batch'] = 10
-    learning['epochs'] = 100
-    learning['non_dec'] = 10
+    Net = {}
+    Net['laf'] = None  # nn.Tanh()
+    Net['af'] = nn.Tanh()
+    Net['lr'] = 0.001  # 0.001
+    Net['dr'] = 0.99  # 0.9 
+    Net['batch'] = 10  # 10
+    Net['epochs'] = 100
+    Net['non_dec'] = 10
 
     start_time = time.time()
-    mean_err = np.zeros((Gs['n_graphs'], N_EXPS, len(SAMPLES)))
-    median_err = np.zeros((Gs['n_graphs'], N_EXPS, len(SAMPLES)))
-    node_err = np.zeros((Gs['n_graphs'], N_EXPS, len(SAMPLES)))
+    err = np.zeros((len(SAMPLES), Gs['n_graphs'], N_EXPS))
+    node_err = np.zeros((len(SAMPLES), Gs['n_graphs'], N_EXPS))
+    epochs = np.zeros((len(SAMPLES), Gs['n_graphs'], N_EXPS))
     for i, sample in enumerate(SAMPLES):
         print('Samples:', sample)
         with Pool(processes=N_CPUS) as pool:
             results = []
             for j in range(Gs['n_graphs']):
                 results.append(pool.apply_async(run,
-                               args=[j, Gs, signals, learning, sample]))
+                               args=[j, Gs, Signals, Net, sample]))
             for j in range(Gs['n_graphs']):
-                mean_err[j, :, i], median_err[j, :, i], node_err[j, :, i] = \
+                params, err[i, j, :], node_err[i, j, :] = \
                     results[j].get()
 
         # Print summary
-        utils.print_partial_results(sample, EXPS, node_err[:, :, i],
-                                    median_err[:, :, i])
-
-        utils.save(SAVE_PATH, EXPS, node_err[:, :, i], median_err[:, :, i],
-                   Gs, signals, learning)
+        utils.print_partial_results(sample, EXPS, node_err[i, :, :],
+                                    err[i, :, :])
 
     end_time = time.time()
-    utils.print_results(SAMPLES, EXPS, node_err, median_err)
+    utils.print_results(SAMPLES, EXPS, node_err, err)
     print('Time: {} hours'.format((end_time-start_time)/3600))
-
+    legend = create_legend(params)
+    fmts = [exp['fmt'] for exp in EXPS]
+    x_label = 'Number of samples'
+    utils.plot_results(err, SAMPLES, legend=legend, fmts=fmts, x_label=x_label)
     if SAVE:
-        utils.save(SAVE_PATH, EXPS, node_err, median_err, Gs, signals,
-                   learning)
+        data = {
+            'seed': SEED,
+            'exps': EXPS,
+            'Gs': Gs,
+            'Signals': Signals,
+            'Net': Net,
+            'node_err': node_err,
+            'err': err,
+            'params': params,
+            'fmts': fmts,
+            'legend': legend,
+            'x_label': x_label,
+            'Pert': SAMPLES
+        }
+        utils.save_results(FILE_PREF, PATH, data)

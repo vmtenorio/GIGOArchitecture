@@ -23,26 +23,35 @@ PERT = [10, 20, 30, 40, 50]
 PATH = './results/nodes_pert/'
 FILE_PREF = 'nodes_'
 
-CONV1 = [{'f_enc': [1, 2, 2, 2, 3],  # 10
+CONV1 = [{'f_enc': [1, 6, 6, 6, 6],  # 10
           'kernel_enc': 11,
-          'f_dec': [3, 2, 2, 1],
+          'f_dec': [6, 6, 6, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 2, 2, 2, 3],  # 20
+         {'f_enc': [1, 6, 6, 6, 6],  # 20
           'kernel_enc': 11,
-          'f_dec': [3, 3, 1],
+          'f_dec': [6, 6, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 2, 2, 2, 2, 3],  # 30
+         {'f_enc': [1, 5, 5, 6, 6, 7],  # 30
           'kernel_enc': 11,
-          'f_dec': [3, 2, 1],
+          'f_dec': [7, 6, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 2, 2, 2, 3, 3],  # 40
+         {'f_enc': [1, 5, 5, 6, 6, 6],  # 40
           'kernel_enc': 11,
-          'f_dec': [3, 1],
+          'f_dec': [6, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 1, 1, 1, 2, 2, 2, 3],  # 50
+         {'f_enc': [1, 5, 5, 6, 6, 6, 6, 7],  # 50
           'kernel_enc': 11,
-          'f_dec': [3, 2, 1],
+          'f_dec': [7, 6, 1],
           'kernel_dec': 11}]
+
+{'type': 'AutoConv',  # 
+         'f_enc': [1, 5, 5, 6, 6],
+         'kernel_enc': 13,
+         'f_dec': [6, 6, 5, 5, 1],
+         'kernel_dec': 13,
+         'early_stop': True,
+         'fmt': 'P-'},
+
 
 CONV2 = [{'f_enc': [1, 1, 1, 2, 2],  # 10
           'kernel_enc': 11,
@@ -67,21 +76,46 @@ CONV2 = [{'f_enc': [1, 1, 1, 2, 2],  # 10
 
 
 EXPS = [
-        # {'type': 'AutoFC',
-        #  'n_enc': [256, 1],
-        #  'n_dec': [1, None],
-        #  'bias': True},
+        #  {'type': 'AutoConv',
+        #  'convs': CONV1,
+        #  'early_stop': True,
+        #  'fmt': 'P-'},
 
-        {'type': 'Enc_Dec',  # 1590
-         'f_enc': [1, 15, 15, 15],
-         'n_enc': [256, 64, 16, 4],
-         'f_dec': [15, 15, 15, 15],
-         'n_dec': [4, 16, 64, None],
+        {'type': 'Enc_Dec',  # 2610
+         'f_enc': [1, 15, 15, 15, 15, 15],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [15, 15, 15, 15, 15, 15],
+         'n_dec': [4, 8, 16, 32, 64, 256],
          'f_conv': [15, 15, 1],
+         'K_enc': 3,
+         'K_dec': 3,
          'ups': gc.WEI,
          'downs': gc.WEI,
          'early_stop': True,
-         'fmt': 'X-'},
+         'fmt': 'o-'},
+        {'type': 'Enc_Dec',  # 2610
+         'f_enc': [1, 15, 15, 15, 15, 15],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [15, 15, 15, 15, 15, 15],
+         'n_dec': [4, 8, 16, 32, 64, 256],
+         'f_conv': [15, 15, 1],
+         'ups': gc.GF,
+         'K_enc': 3,
+         'K_dec': 3,
+         'downs': gc.GF,
+         'early_stop': True,
+         'fmt': 'v-'},
+
+        # {'type': 'Enc_Dec',  # 1590
+        #  'f_enc': [1, 15, 15, 15],
+        #  'n_enc': [256, 64, 16, 4],
+        #  'f_dec': [15, 15, 15, 15],
+        #  'n_dec': [4, 16, 64, None],
+        #  'f_conv': [15, 15, 1],
+        #  'ups': gc.WEI,
+        #  'downs': gc.WEI,
+        #  'early_stop': True,
+        #  'fmt': 'X-'},
 
         {'type': 'Enc_Dec',  # 162
          'f_enc': [1, 3, 3, 3, 3, 3],
@@ -89,49 +123,73 @@ EXPS = [
          'f_dec': [3, 3, 3, 3, 3, 3],
          'n_dec': [4, 8, 16, 32, 64, None],
          'f_conv': [3, 3, 1],
+         'K_enc': 3,
+         'K_dec': 3,
          'ups': gc.WEI,
          'downs': gc.WEI,
          'early_stop': True,
          'fmt': 'o--'},
+        {'type': 'Enc_Dec',  # 162
+         'f_enc': [1, 3, 3, 3, 3, 3],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64, None],
+         'f_conv': [3, 3, 1],
+         'K_enc': 3,
+         'K_dec': 3,
+         'ups': gc.GF,
+         'downs': gc.GF,
+         'early_stop': True,
+         'fmt': 'v--'},
 
-        {'type': 'Enc_Dec',  # 153
-         'f_enc': [1, 4, 4, 4],
-         'n_enc': [256, 64, 16, 4],
-         'f_dec': [4, 4, 4, 4],
-         'n_dec': [4, 16, 64, None],
-         'f_conv': [4, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI,
+         {'type': 'AutoFC',
+         'n_enc': [256, 5],
+         'n_dec': [5, None],
+         'bias': True,
          'early_stop': True,
          'fmt': 'X-'},
+         {'type': 'AutoFC',
+         'n_enc': [256, 1],
+         'n_dec': [1, None],
+         'bias': True,
+         'early_stop': True,
+         'fmt': 'X--'},
 
-
-
-        # {'type': 'Enc_Dec',  # 298
-        #  'f_enc': [1, 5, 5, 5, 7, 10],
+        # {'type': 'Enc_Dec',  # 162
+        #  'f_enc': [1, 3, 3, 3, 3, 3],
         #  'n_enc': [256, 64, 32, 16, 8, 4],
-        #  'f_dec': [10, 7, 5, 5, 5, 5],
+        #  'f_dec': [3, 3, 3, 3, 3, 3],
         #  'n_dec': [4, 8, 16, 32, 64, None],
-        #  'f_conv': [5, 5, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI,
-        #  'early_stop': False,
-        #  'fmt': 'o--'},
-        
-        # {'type': 'Enc_Dec',  # 132
-        #  'f_enc': [1, 5, 5, 5, 5],
-        #  'n_enc': [256, 64, 16, 8, 4],
-        #  'f_dec': [5, 5, 5, 5, 3],
-        #  'n_dec': [4, 8, 16, 64, None],
         #  'f_conv': [3, 3, 1],
+        #  'ups': gc.GF,
+        #  'downs': gc.GF,
+        #  'early_stop': True,
+        #  'fmt': 'P--'},
+        # {'type': 'Enc_Dec',  # 153
+        #  'f_enc': [1, 4, 4, 4],
+        #  'n_enc': [256, 64, 16, 4],
+        #  'f_dec': [4, 4, 4, 4],
+        #  'n_dec': [4, 16, 64, None],
+        #  'f_conv': [4, 3, 1],
         #  'ups': gc.WEI,
         #  'downs': gc.WEI,
-        #  'early_stop': False,
-        #  'fmt': 'o--'},
+        #  'early_stop': True,
+        #  'fmt': 'X--'},
+
+        # {'type': 'Enc_Dec',  # 153
+        #  'f_enc': [1, 4, 4, 4],
+        #  'n_enc': [256, 64, 16, 4],
+        #  'f_dec': [4, 4, 4, 4],
+        #  'n_dec': [4, 16, 64, None],
+        #  'f_conv': [4, 3, 1],
+        #  'ups': gc.WEI,
+        #  'downs': gc.WEI,
+        #  'early_stop': True,
+        #  'fmt': 'X--'},
 
 
-        # {'type': 'AutoConv',
-        #  'convs': CONV1},
+
+        
         # {'type': 'Enc_Dec',  # HalfWeigths
         #  'f_enc': [1, 3, 3, 3, 3],
         #  'n_enc': [256, 64, 16, 8, 4],
@@ -184,6 +242,7 @@ def run(id, Gs, Signals, lrn, pert):
             net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
                                       exp['f_dec'], clust_y.sizes, clust_y.Us,
                                       exp['f_conv'], As_dec=clust_y.As,
+                                      K_dec=exp['K_dec'], K_enc=exp['K_enc'],
                                       As_enc=clust_x.As, act_fn=lrn['af'],
                                       last_act_fn=lrn['laf'], ups=exp['ups'],
                                       downs=exp['downs'])
@@ -207,15 +266,21 @@ def run(id, Gs, Signals, lrn, pert):
         print('G: {}, {}-{} ({}): epochs {} - mse {} - MedianErr: {}'
               .format(id, i, exp['type'], params[i], epochs,
                       mse[i], med_err[i]))
-
     return params, med_err, mse
 
 
 def create_legend(params):
     legend = []
     for i, exp in enumerate(EXPS):
-        txt = 'Ups: {}, Down: {}, P: {}, Stop: {}'.format(exp['ups'], exp['downs'],
-                                                          params[i], exp['early_stop'])
+        txt = ''
+        if exp['type'] is 'Enc_Dec':
+            txt = 'G-E/D-{}: Ups: {}, Down: {}, K-Enc: {}, K-Dec: {} Stop: {}'
+            txt = txt.format(params[i], exp['ups'], exp['downs'], exp['K_enc'],
+                             exp['K_dec'], exp['early_stop'])
+        elif exp['type'] is 'AutoFC':
+            txt = 'AE-FC-{}, Stop: {}'.format(params[i], exp['early_stop'])
+        elif exp['type'] is 'AutoConv':
+            txt = 'AE-CV-{}, Stop: {}'.format(params[i], exp['early_stop'])
         legend.append(txt)
     return legend
 
@@ -260,12 +325,12 @@ if __name__ == '__main__':
     Signals['test_only'] = True
 
     Net = {}
-    Net['laf'] = nn.Tanh()
+    Net['laf'] = None  # nn.Tanh()
     Net['af'] = nn.Tanh()
-    Net['lr'] = 0.01
-    Net['dr'] = 0.9
+    Net['lr'] =  0.001
+    Net['dr'] = .8  # 1
     Net['batch'] = 10
-    Net['epochs'] = 50  # 100
+    Net['epochs'] = 100
     Net['non_dec'] = 10
 
     print("CPUs used:", N_CPUS)
@@ -291,7 +356,8 @@ if __name__ == '__main__':
     print('Time: {} hours'.format((end_time-start_time)/3600))
     legend = create_legend(params)
     fmts = [exp['fmt'] for exp in EXPS]
-    utils.plot_results(median_err, PERT, legend=legend, fmts=fmts)
+    x_label = 'Number of removed nodes'
+    utils.plot_results(median_err, PERT, legend=legend, fmts=fmts, x_label=x_label)
     if SAVE:
         data = {
             'seed': SEED,
@@ -302,5 +368,10 @@ if __name__ == '__main__':
             'node_err': node_err,
             'err': median_err,
             'params': params,
+            'fmts': fmts,
+            'legend': legend,
+            'x_label': x_label,
+            'Pert': PERT
+            
         }
         utils.save_results(FILE_PREF, PATH, data)

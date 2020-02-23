@@ -17,24 +17,54 @@ PATH = './results/epochs/'
 FILE_PREF = 'epochs_'
 
 SEED = 15
-N_CPUS = 1  # cpu_count()
-VERBOSE = True
-SAVE = True
+N_CPUS = cpu_count()
+VERBOSE = False
+SAVE = False
 SAVE_PATH = './results/node_pert'
 EVAL_F = 1
 
-MAX_EPOCHS = 200
+MAX_EPOCHS = 100
 
 EXPS = [
         {'type': 'Enc_Dec',  # 2610
          'f_enc': [1, 15, 15, 15, 15, 15],
          'n_enc': [256, 64, 32, 16, 8, 4],
          'f_dec': [15, 15, 15, 15, 15, 15],
-         'n_dec': [4, 8, 16, 32, 64, 256],
+         'n_dec': [4, 8, 16, 32, 64, 226],
          'f_conv': [15, 15, 1],
          'ups': gc.WEI,
          'downs': gc.WEI,
          'fmt': ['o-', 'o--']},
+        {'type': 'Enc_Dec',  # 2610
+         'f_enc': [1, 15, 15, 15, 15, 15],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [15, 15, 15, 15, 15, 15],
+         'n_dec': [4, 8, 16, 32, 64, 226],
+         'f_conv': [15, 15, 1],
+         'ups': gc.GF,
+         'downs': gc.GF,
+         'fmt': ['o-', 'o--']},
+        # {'type': 'Enc_Dec',  # 162
+        #  'f_enc': [1, 3, 3, 3, 3, 3],
+        #  'n_enc': [256, 64, 32, 16, 8, 4],
+        #  'f_dec': [3, 3, 3, 3, 3, 3],
+        #  'n_dec': [4, 8, 16, 32, 64, 226],
+        #  'f_conv': [3, 3, 1],
+        #  'ups': gc.WEI,
+        #  'downs': gc.WEI,
+        #  'early_stop': True,
+        #  'fmt': ['X-', 'X--']},
+
+        # {'type': 'Enc_Dec',  # 2610
+        #  'f_enc': [1, 30, 30, 30, 30, 30],
+        #  'n_enc': [256, 64, 32, 16, 8, 4],
+        #  'f_dec': [30, 30, 30, 30, 30, 30],
+        #  'n_dec': [4, 8, 16, 32, 64, 226],
+        #  'f_conv': [30, 1],
+        #  'ups': gc.WEI,
+        #  'downs': gc.WEI,
+        #  'fmt': ['o-', 'o--']},
+
         # {'type': 'AutoConv',  # 
         #  'f_enc': [1, 5, 6, 6, 6],
         #  'kernel_enc': 13,
@@ -45,9 +75,14 @@ EXPS = [
         #  'fmt': ['o-', 'o--']},
         {'type': 'AutoFC',  # 2641
          'n_enc': [256, 5],
-         'n_dec': [5, 256],
+         'n_dec': [5, 226],
          'bias': True,
-         'fmt': ['o-', 'o--']}
+         'fmt': ['v-', 'v--']},
+        # {'type': 'AutoFC',
+        #  'n_enc': [256, 1],
+        #  'n_dec': [1, 226],
+        #  'bias': True,
+        #  'fmt': ['^-', '^--']}
 
 
         ]
@@ -55,10 +90,9 @@ N_EXPS = len(EXPS)
 
 
 def run(id, Gs, Signals, Lrn):
-    Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['pct_val'][0], Gs['pct_val'][1],
-                                   pct=Gs['pct'], perm=True, seed=SEED)
+    Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], Gs['pert'], seed=SEED)
     # Create Signals
-    data = ds.LinearDS2GSLinksPert(Gx, Gy, Signals['samples'], Signals['L'],
+    data = ds.LinearDS2GSNodesPert(Gx, Gy, Signals['samples'], Signals['L'],
                                    Signals['deltas'], median=Signals['median'],
                                    same_coeffs=Signals['same_coeffs'])
     data.to_unit_norm()
@@ -69,6 +103,7 @@ def run(id, Gs, Signals, Lrn):
     train_err = np.zeros((N_EXPS, MAX_EPOCHS))
     val_err = np.zeros((N_EXPS, MAX_EPOCHS))
     params = np.zeros(N_EXPS)
+    test_err = np.zeros(N_EXPS)
     for i, exp in enumerate(EXPS):
         if exp['type'] is 'Enc_Dec':
             clust_x = gc.MultiResGraphClustering(Gx, exp['n_enc'],
@@ -99,13 +134,13 @@ def run(id, Gs, Signals, Lrn):
         params[i] = model.count_params()
         epochs, train_err[i, :], val_err[i, :] = model.fit(data.train_X, data.train_Y,
                                                            data.val_X, data.val_Y)
-        _, med_err, mse = model.test(data.test_X, data.test_Y)
+        _, test_err[i], mse = model.test(data.test_X, data.test_Y)
         print('G: {}, {}-{} ({}): epochs {} - mse {} - MedianErr: {}'
               .format(id, i, exp['type'], params[i], epochs,
-                      mse, med_err))
+                      mse, test_err[i]))
     # Multiplying by N because we're interested in the error of the whole
     # signal, # not only the node error
-    return train_err.T*Gy.N, val_err.T*Gy.N, params
+    return train_err.T*Gy.N, val_err.T*Gy.N, params, test_err
 
 
 if __name__ == '__main__':
@@ -115,40 +150,41 @@ if __name__ == '__main__':
 
     # Graph parameters
     Gs = {}
-    Gs['n_graphs'] = 1
+    Gs['n_graphs'] = 15
     G_params = {}
     G_params['type'] = ds.SBM
    
     G_params['N'] = N = 256
     G_params['k'] = k = 4
-    G_params['p'] = 0.20
+    G_params['p'] = 0.25
     G_params['q'] = [[0, 0.0075, 0, 0.0],
                      [0.0075, 0, 0.004, 0.0025],
                      [0, 0.004, 0, 0.005],
                      [0, 0.0025, 0.005, 0]]
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
-    Gs['pct'] = True
-    Gs['pct_val'] = [0, 10]
+    Gs['pert'] = 30
 
     # Signals
     Signals = {}
     Signals['L'] = 6
-    Signals['samples'] = [2000, 500, 1000]
+    Signals['samples'] = [2000, 1000, 1000]
     Signals['deltas'] = k
     Signals['noise'] = 0
     Signals['median'] = True
     Signals['same_coeffs'] = False
     Signals['test_only'] = True
     
+    # NOTA: los valores pequeños parecen haber funcionado bien en la convergencia!
+    # lr: 0.0001 dr: 0.9 --> merece la pena quitar Tanh?
     Net = {}
-    Net['laf'] = nn.Tanh()
+    Net['laf'] = None  # nn.Tanh()
     Net['af'] = nn.Tanh()
-    Net['lr'] = 0.001
-    Net['dr'] = 1  # 0.99
-    Net['batch'] = 10 # 100 --> parece que mal para FC!
-    Net['epochs'] = MAX_EPOCHS
-    Net['non_dec'] = 10
+    Net['lr'] =  0.001
+    Net['dr'] = 0.75  # 1
+    Net['batch'] = 10
+    Net['epochs'] = 100  # 50 --> experimento actual!!
+    Net['non_dec'] = 15
     Net['early_stop'] = False
     Net['steps'] = int(Signals['samples'][0]/Net['batch'])
 
@@ -156,23 +192,25 @@ if __name__ == '__main__':
     start_time = time.time()
     train_err = np.zeros((MAX_EPOCHS, Gs['n_graphs'], N_EXPS))
     val_err = np.zeros((MAX_EPOCHS, Gs['n_graphs'], N_EXPS))
+    test_err = np.zeros((Gs['n_graphs'], N_EXPS))
     with Pool(processes=N_CPUS) as pool:
         results = []
         for j in range(Gs['n_graphs']):
             results.append(pool.apply_async(run,
                            args=[j, Gs, Signals, Net]))
         for j in range(Gs['n_graphs']):
-            train_err[:, j, :], val_err[:, j, :], params = results[j].get()
+            train_err[:, j, :], val_err[:, j, :], params, test_err[j, :] = results[j].get()
 
     end_time = time.time()
     print('--- {} hours ---'.format((time.time()-start_time)/3600))
     epochs = np.arange(MAX_EPOCHS)
     # Plot median of all realiztions
     utils.plot_overfitting(train_err, val_err, params, show=True)
+    utils.print_partial_results(0, EXPS, test_err, test_err)
     # Plot only first realization
-    # first_t_err = train_err[:, 0, :].reshape([MAX_EPOCHS, 1, N_EXPS])
-    # first_v_err = val_err[:, 0, :].reshape([MAX_EPOCHS, 1, N_EXPS])
-    # utils.plot_overfitting(first_t_err, first_v_err, params)
+    first_t_err = train_err[:, 0, :].reshape([MAX_EPOCHS, 1, N_EXPS])
+    first_v_err = val_err[:, 0, :].reshape([MAX_EPOCHS, 1, N_EXPS])
+    utils.plot_overfitting(first_t_err, first_v_err, params)
     if SAVE:
         data = {
             'seed': SEED,
