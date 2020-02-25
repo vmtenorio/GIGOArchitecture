@@ -19,6 +19,7 @@ class GraphEncoderDecoder(nn.Module):
                  # Only conv layers
                  features_conv_dec=[],
                  # Optional args
+                 K_enc=3, K_dec=3,
                  As_enc=None, As_dec=None, ups=WEI, downs=WEI,
                  gamma=0.5, batch_norm=True,
                  # Activation functions
@@ -36,9 +37,11 @@ class GraphEncoderDecoder(nn.Module):
         self.model = nn.Sequential()
         self.fts_enc = features_enc
         self.nodes_enc = nodes_enc
+        self.K_enc = K_enc
         self.Ds = Ds
         self.fts_dec = features_dec
         self.nodes_dec = nodes_dec
+        self.K_dec = K_dec
         self.Us = Us
         self.fts_cnv_dec = features_conv_dec
         self.As_enc = As_enc
@@ -68,8 +71,8 @@ class GraphEncoderDecoder(nn.Module):
                     A = self.As_enc[l+1-downs_skip]
                 else:
                     A = None
-                self.add_layer(GraphDownsampling(self.Ds[l-downs_skip],
-                                                 A, self.gamma, self.downs))
+                self.add_layer(GraphDownsampling(self.Ds[l-downs_skip], A, 
+                                                 self.gamma, self.downs, self.K_enc))
             else:
                 downs_skip += 1
             if self.act_fn is not None:
@@ -88,8 +91,8 @@ class GraphEncoderDecoder(nn.Module):
                     A = self.As_dec[l+1-ups_skip]
                 else:
                     A = None
-                self.add_layer(GraphUpsampling(self.Us[l-ups_skip],
-                                               A, self.gamma, self.ups))
+                self.add_layer(GraphUpsampling(self.Us[l-ups_skip], A,
+                                               self.gamma, self.ups, self.K_dec))
             else:
                 ups_skip += 1
 
