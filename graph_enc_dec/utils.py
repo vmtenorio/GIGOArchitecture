@@ -58,8 +58,6 @@ def plot_results(err, x_axis, legend=None, fmts=None, x_label=None):
     plt.show()
 
 
-# OLD!
-# NOTE: maybe create a class for print/plot?
 def print_partial_results(p_n, exps, node_err, med_err):
     print('Noise:', p_n)
     for i, exp in enumerate(exps):
