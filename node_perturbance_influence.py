@@ -18,105 +18,46 @@ N_CPUS = cpu_count()
 VERBOSE = False
 SAVE = True
 EVAL_F = 5
-PERT = [10, 20, 30, 40, 50]
+PERT = [10, 20, 30, 40]
 
 PATH = './results/nodes_pert/'
 FILE_PREF = 'nodes_'
 
-CONV1 = [{'f_enc': [1, 6, 6, 6, 6],  # 10
+CONV1 = [{'f_enc': [1, 6, 7, 7, 7],  # 10 - 2673
           'kernel_enc': 11,
-          'f_dec': [6, 6, 6, 1],
+          'f_dec': [7, 6, 6, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 6, 6, 6, 6],  # 20
+         {'f_enc': [1, 7, 7, 8, 8],  # 20 - 2629
           'kernel_enc': 11,
-          'f_dec': [6, 6, 1],
+          'f_dec': [8, 7, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 5, 5, 6, 6, 7],  # 30
+         {'f_enc': [1, 6, 6, 6, 7, 7],  # 30 - 2673
           'kernel_enc': 11,
           'f_dec': [7, 6, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 5, 5, 6, 6, 6],  # 40
+         {'f_enc': [1, 7, 7, 7, 8, 8],  # 40 - 2563
           'kernel_enc': 11,
-          'f_dec': [6, 1],
+          'f_dec': [8, 1],
           'kernel_dec': 11},
-         {'f_enc': [1, 5, 5, 6, 6, 6, 6, 7],  # 50
+         {'f_enc': [1, 5, 5, 6, 6, 6, 6, 6],  # 50 - 2750
           'kernel_enc': 11,
-          'f_dec': [7, 6, 1],
-          'kernel_dec': 11}]
-
-{'type': 'AutoConv',  # 
-         'f_enc': [1, 5, 5, 6, 6],
-         'kernel_enc': 13,
-         'f_dec': [6, 6, 5, 5, 1],
-         'kernel_dec': 13,
-         'early_stop': True,
-         'fmt': 'P-'},
-
-
-CONV2 = [{'f_enc': [1, 1, 1, 2, 2],  # 10
-          'kernel_enc': 11,
-          'f_dec': [2, 1, 1, 1],
-          'kernel_dec': 11},
-         {'f_enc': [1, 1, 1, 2, 2],  # 20
-          'kernel_enc': 11,
-          'f_dec': [2, 1, 1],
-          'kernel_dec': 11},
-         {'f_enc': [1, 1, 2, 2, 2],  # 30
-          'kernel_enc': 11,
-          'f_dec': [2, 1],
-          'kernel_dec': 11},
-         {'f_enc': [1, 1, 1, 1, 2, 2],  # 40
-          'kernel_enc': 11,
-          'f_dec': [2, 1],
-          'kernel_dec': 11},
-         {'f_enc': [1, 1, 1, 1, 1, 2, 2],  # 50
-          'kernel_enc': 11,
-          'f_dec': [2, 1],
+          'f_dec': [6, 5, 1],
           'kernel_dec': 11}]
 
 
 EXPS = [
-        #  {'type': 'AutoConv',
-        #  'convs': CONV1,
-        #  'early_stop': True,
-        #  'fmt': 'P-'},
-
         {'type': 'Enc_Dec',  # 2610
          'f_enc': [1, 15, 15, 15, 15, 15],
          'n_enc': [256, 64, 32, 16, 8, 4],
          'f_dec': [15, 15, 15, 15, 15, 15],
-         'n_dec': [4, 8, 16, 32, 64, 256],
+         'n_dec': [4, 8, 16, 32, 64, None],
          'f_conv': [15, 15, 1],
-         'K_enc': 3,
-         'K_dec': 3,
          'ups': gc.WEI,
          'downs': gc.WEI,
-         'early_stop': True,
-         'fmt': 'o-'},
-        {'type': 'Enc_Dec',  # 2610
-         'f_enc': [1, 15, 15, 15, 15, 15],
-         'n_enc': [256, 64, 32, 16, 8, 4],
-         'f_dec': [15, 15, 15, 15, 15, 15],
-         'n_dec': [4, 8, 16, 32, 64, 256],
-         'f_conv': [15, 15, 1],
-         'ups': gc.GF,
          'K_enc': 3,
          'K_dec': 3,
-         'downs': gc.GF,
          'early_stop': True,
-         'fmt': 'v-'},
-
-        # {'type': 'Enc_Dec',  # 1590
-        #  'f_enc': [1, 15, 15, 15],
-        #  'n_enc': [256, 64, 16, 4],
-        #  'f_dec': [15, 15, 15, 15],
-        #  'n_dec': [4, 16, 64, None],
-        #  'f_conv': [15, 15, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI,
-        #  'early_stop': True,
-        #  'fmt': 'X-'},
-
+         'fmt': 'o-'},
         {'type': 'Enc_Dec',  # 162
          'f_enc': [1, 3, 3, 3, 3, 3],
          'n_enc': [256, 64, 32, 16, 8, 4],
@@ -129,7 +70,19 @@ EXPS = [
          'downs': gc.WEI,
          'early_stop': True,
          'fmt': 'o--'},
-        {'type': 'Enc_Dec',  # 162
+        {'type': 'Enc_Dec',  # 2640
+         'f_enc': [1, 15, 15, 15, 15, 15],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [15, 15, 15, 15, 15, 15],
+         'n_dec': [4, 8, 16, 32, 64, None],
+         'f_conv': [15, 15, 1],
+         'K_enc': 3,
+         'K_dec': 3,
+         'ups': gc.GF,
+         'downs': gc.GF,
+         'early_stop': True,
+         'fmt': '^-'},
+        {'type': 'Enc_Dec',  # 192
          'f_enc': [1, 3, 3, 3, 3, 3],
          'n_enc': [256, 64, 32, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3, 3],
@@ -140,66 +93,17 @@ EXPS = [
          'ups': gc.GF,
          'downs': gc.GF,
          'early_stop': True,
-         'fmt': 'v--'},
-
-         {'type': 'AutoFC',
+         'fmt': '^--'},
+        {'type': 'AutoFC',  # 2521
          'n_enc': [256, 5],
-         'n_dec': [5, None],
+         'n_dec': [5, 256],
          'bias': True,
          'early_stop': True,
          'fmt': 'X-'},
-         {'type': 'AutoFC',
-         'n_enc': [256, 1],
-         'n_dec': [1, None],
-         'bias': True,
+         {'type': 'AutoConv',  # 2750
+         'convs': CONV1,
          'early_stop': True,
-         'fmt': 'X--'},
-
-        # {'type': 'Enc_Dec',  # 162
-        #  'f_enc': [1, 3, 3, 3, 3, 3],
-        #  'n_enc': [256, 64, 32, 16, 8, 4],
-        #  'f_dec': [3, 3, 3, 3, 3, 3],
-        #  'n_dec': [4, 8, 16, 32, 64, None],
-        #  'f_conv': [3, 3, 1],
-        #  'ups': gc.GF,
-        #  'downs': gc.GF,
-        #  'early_stop': True,
-        #  'fmt': 'P--'},
-        # {'type': 'Enc_Dec',  # 153
-        #  'f_enc': [1, 4, 4, 4],
-        #  'n_enc': [256, 64, 16, 4],
-        #  'f_dec': [4, 4, 4, 4],
-        #  'n_dec': [4, 16, 64, None],
-        #  'f_conv': [4, 3, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI,
-        #  'early_stop': True,
-        #  'fmt': 'X--'},
-
-        # {'type': 'Enc_Dec',  # 153
-        #  'f_enc': [1, 4, 4, 4],
-        #  'n_enc': [256, 64, 16, 4],
-        #  'f_dec': [4, 4, 4, 4],
-        #  'n_dec': [4, 16, 64, None],
-        #  'f_conv': [4, 3, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI,
-        #  'early_stop': True,
-        #  'fmt': 'X--'},
-
-
-
-        
-        # {'type': 'Enc_Dec',  # HalfWeigths
-        #  'f_enc': [1, 3, 3, 3, 3],
-        #  'n_enc': [256, 64, 16, 8, 4],
-        #  'f_dec': [3, 3, 3, 3, 3],
-        #  'n_dec': [4, 8, 16, 64, None],
-        #  'f_conv': [3, 3, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI},
-        # {'type': 'AutoConv',
-        #  'convs': CONV2}
+         'fmt': 'P-'},
         ]
 
 
@@ -208,7 +112,8 @@ N_EXPS = len(EXPS)
 
 def run(id, Gs, Signals, lrn, pert):
     if Gs['params']['type'] == ds.SBM:
-        Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], pert, seed=SEED)
+        Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], pert, seed=SEED,
+                                             perm=True)
     elif Gs['params']['type'] == ds.BA:
         Gx = ds.create_graph(Gs['params'], SEED)
         G_params_y = Gs['params'].copy()
@@ -292,7 +197,7 @@ if __name__ == '__main__':
 
     # Graphs parameters
     Gs = {}
-    Gs['n_graphs'] = 15
+    Gs['n_graphs'] = 30
     G_params = {}
     G_params['type'] = ds.SBM
     G_params['N'] = N = 256
@@ -316,7 +221,7 @@ if __name__ == '__main__':
     # Signals
     Signals = {}
     Signals['L'] = 6
-    Signals['samples'] = [2000, 1000, 1000]
+    Signals['samples'] = [2000, 500, 1000]
     Signals['deltas'] = k
     Signals['noise'] = 0
     Signals['median'] = True
@@ -325,10 +230,10 @@ if __name__ == '__main__':
     Signals['test_only'] = True
 
     Net = {}
-    Net['laf'] = None  # nn.Tanh()
+    Net['laf'] = nn.Tanh()
     Net['af'] = nn.Tanh()
     Net['lr'] =  0.001
-    Net['dr'] = .8  # 1
+    Net['dr'] = .9
     Net['batch'] = 10
     Net['epochs'] = 100
     Net['non_dec'] = 10
@@ -372,6 +277,5 @@ if __name__ == '__main__':
             'legend': legend,
             'x_label': x_label,
             'Pert': PERT
-            
         }
         utils.save_results(FILE_PREF, PATH, data)
