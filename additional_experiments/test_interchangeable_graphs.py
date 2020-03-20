@@ -14,29 +14,28 @@ from graph_enc_dec import utils
 
 
 SEED = 15
-VERBOSE = False
+VERBOSE = True
 SAVE = False
 SAVE_PATH = './results/diff_graphs'
 EVAL_F = 1
 
 
-EXPS = [
-        # {'type': 'Enc_Dec',  # 132
-        #  'f_enc': [1, 3, 3, 3, 3],
-        #  'n_enc': [64]*5,
-        #  'f_dec': [3, 3, 3, 3, 3],
-        #  'n_dec': [64]*5,
-        #  'f_conv': [3, 3, 1],
-        #  'ups': None,
-        #  'downs': None},
+EXPS = [{'type': 'Enc_Dec',  # 132
+         'f_enc': [1, 3, 3, 3, 3],
+         'n_enc': [64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI},
         {'type': 'Enc_Dec',  # 132
          'f_enc': [1, 3, 3, 3, 3],
          'n_enc': [64, 32, 16, 8, 4],
          'f_dec': [3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 54],
+         'n_dec': [4, 8, 16, 32, 64],
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI},
+         'ups': gc.GF,
+         'downs': gc.GF},
         {'type': 'AutoConv',  # 140
          'f_enc': [1, 2, 2, 2, 2],
          'kernel_enc': 5,
@@ -60,11 +59,6 @@ def create_model(Gx, Gy, exp, lrn):
         clust_y = gc.MultiResGraphClustering(Gy, exp['n_dec'],
                                              k=exp['n_enc'][-1],
                                              up_method=exp['ups'])
-
-        clust_x.plot_labels(False)
-        clust_y.plot_labels()
-        sys.exit()
-
         net = GraphEncoderDecoder(exp['f_enc'], clust_x.sizes, clust_x.Ds,
                                   exp['f_dec'], clust_y.sizes, clust_y.Us,
                                   exp['f_conv'], As_dec=clust_y.As,
@@ -88,27 +82,27 @@ def create_model(Gx, Gy, exp, lrn):
 
 def train_models(Gs, signals, lrn):
     # Create data
-    # Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['create'], Gs['destroy'],
-    #                                pct=Gs['pct'], seed=SEED)
-    Gx, Gy = ds.nodes_perturbated_graphs(Gs['params'], 10, seed=SEED)
-    data = ds.LinearDS2GSNodesPert(Gx, Gy, signals['samples'], signals['L'],
+    Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['create'], Gs['destroy'],
+                                   pct=Gs['pct'], seed=SEED)
+    data = ds.LinearDS2GSLinksPert(Gx, Gy, signals['samples'], signals['L'],
                                    signals['deltas'], median=signals['median'],
                                    same_coeffs=signals['same_coeffs'])
-
     data.to_unit_norm()
     data.add_noise(signals['noise'], test_only=signals['test_only'])
 
+    sign_dist = np.median(np.linalg.norm(data.train_X-data.train_Y, axis=1))
+    print('Distance signals:', sign_dist)
     data.to_tensor()
     data_state = data.state_dict()
 
-    med_err = np.zeros(N_EXPS)
-    epochs = np.zeros(N_EXPS)
-    mse = np.zeros(N_EXPS)
+    # med_err = np.zeros(N_EXPS)
+    # epochs = np.zeros(N_EXPS)
+    # mse = np.zeros(N_EXPS)
     models_states = []
     for i, exp in enumerate(EXPS):
         model = create_model(Gx, Gy, exp, lrn)
         # Fit models
-        epochs[i], _, _ = model.fit(data.train_X, data.train_Y, data.val_X,
+        epochs, _, _ = model.fit(data.train_X, data.train_Y, data.val_X,
                                     data.val_Y)
         _, med_error, mse_error = model.test(data.test_X, data.test_Y)
         models_states.append(model.state_dict())
@@ -120,7 +114,7 @@ def train_models(Gs, signals, lrn):
 
 
 def test_original_graphs(data_state, models_state, Gx, Gy, signals, lrn):
-    data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
+    data = ds.LinearDS2GSLinksPert(Gx, Gy, signals['samples'], signals['L'],
                           signals['deltas'], median=signals['median'],
                           same_coeffs=signals['same_coeffs'])
     data.load_state_dict(data_state, unit_norm=True)
@@ -145,9 +139,9 @@ def test_other_graphs(Gs, signals, lrn, data_state, models_state):
     for i in range(Gs['n_graphs']):
         Gx, Gy = ds.perturbated_graphs(Gs['params'], Gs['create'], Gs['destroy'],
                                        pct=Gs['pct'], seed=SEED)
-        data = ds.LinearDS2GS(Gx, Gy, signals['samples'], signals['L'],
-                              signals['deltas'], median=signals['median'],
-                              same_coeffs=signals['same_coeffs'])
+        data = ds.LinearDS2GSLinksPert(Gx, Gy, signals['samples'], signals['L'],
+                                       signals['deltas'], median=signals['median'],
+                                       same_coeffs=signals['same_coeffs'])
         data.load_state_dict(data_state, unit_norm=True)
         data.add_noise(signals['noise'], test_only=signals['test_only'])
         sign_dist = np.median(np.linalg.norm(data.train_X-data.train_Y,
@@ -186,7 +180,7 @@ if __name__ == '__main__':
     G_params['type_z'] = ds.RAND
     Gs['params'] = G_params
     Gs['pct'] = True
-    Gs['create'] = 10
+    Gs['create'] = 0
     Gs['destroy'] = 10
 
     # Signals
@@ -203,9 +197,9 @@ if __name__ == '__main__':
     learning['laf'] = nn.Tanh()
     learning['af'] = nn.Tanh()
     learning['lr'] = 0.01
-    learning['dr'] = 0.9
+    learning['dr'] = 1  #0.9
     learning['batch'] = 10
-    learning['epochs'] = 100
+    learning['epochs'] = 50
     learning['non_dec'] = 10
 
     start_time = time.time()

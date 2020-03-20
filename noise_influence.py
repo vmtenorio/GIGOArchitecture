@@ -25,7 +25,6 @@ EVAL_F = 5
 P_N = [0, .025, .05, 0.075, .1]
 
 
-# Different size: 30 nodos menos
 EXPS = [
         {'type': 'Enc_Dec',  # 2610
          'f_enc': [1, 15, 15, 15, 15, 15],
@@ -37,6 +36,16 @@ EXPS = [
          'downs': gc.WEI,
          'early_stop': True,
          'fmt': 'o-'},
+        {'type': 'Enc_Dec',  # 162
+         'f_enc': [1, 3, 3, 3, 3, 3],
+         'n_enc': [256, 64, 32, 16, 8, 4],
+         'f_dec': [3, 3, 3, 3, 3, 3],
+         'n_dec': [4, 8, 16, 32, 64, 226],
+         'f_conv': [3, 3, 1],
+         'ups': gc.WEI,
+         'downs': gc.WEI,
+         'early_stop': True,
+         'fmt': 'o--'}, 
         {'type': 'Enc_Dec',  # 2610
          'f_enc': [1, 15, 15, 15, 15, 15],
          'n_enc': [256, 64, 32, 16, 8, 4],
@@ -53,21 +62,10 @@ EXPS = [
          'f_dec': [3, 3, 3, 3, 3, 3],
          'n_dec': [4, 8, 16, 32, 64, 226],
          'f_conv': [3, 3, 1],
-         'ups': gc.WEI,
-         'downs': gc.WEI,
-         'early_stop': True,
-         'fmt': 'o--'},
-        {'type': 'Enc_Dec',  # 162
-         'f_enc': [1, 3, 3, 3, 3, 3],
-         'n_enc': [256, 64, 32, 16, 8, 4],
-         'f_dec': [3, 3, 3, 3, 3, 3],
-         'n_dec': [4, 8, 16, 32, 64, 226],
-         'f_conv': [3, 3, 1],
          'ups': gc.GF,
          'downs': gc.GF,
          'early_stop': True,
          'fmt': '^--'},
-
         {'type': 'AutoFC',  # 2641
          'n_enc': [256, 5],
          'n_dec': [5, 226],
@@ -94,49 +92,6 @@ EXPS = [
          'kernel_dec': 6,
          'early_stop': True,
          'fmt': 'P--'}
-
-        # {'type': 'Enc_Dec',  # Original
-        #  'f_enc': [1, 5, 5, 5, 5, 5, 5],
-        #  'n_enc': [256, 128, 64, 32, 16, 8, 4],
-        #  'f_dec': [5, 5, 5, 5, 5, 5, 5],
-        #  'n_dec': [4, 8, 16, 32, 64, 128, 226],
-        #  'f_conv': [5, 5, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI,
-        #  'early_stop': False,
-        #  'fmt': 'X-'},
-
-        # {'type': 'AutoConv',
-        #  'f_enc': [1, 1, 3, 3, 3, 3],
-        #  'kernel_enc': 11,      # Resulting size: Prev_size - kernel + 1
-        #  'f_dec': [3, 2, 1],
-        #  'kernel_dec': 11},
-        # {'type': 'Enc_Dec',  # HalfWeigths
-        #  'f_enc': [1, 3, 5, 5, 5, 5],
-        #  'n_enc': [256, 128, 64, 16, 8, 4],
-        #  'f_dec': [5, 5, 5, 5, 3, 3],
-        #  'n_dec': [4, 8, 16, 64, 128, 226],
-        #  'f_conv': [3, 3, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI},
-        # {'type': 'AutoConv',
-        #  'f_enc': [1, 2, 2, 2, 2, 3],
-        #  'kernel_enc': 11,
-        #  'f_dec': [3, 2, 1],
-        #  'kernel_dec': 11},
-        # {'type': 'Enc_Dec',  # HalfWeigths
-        #  'f_enc': [1, 3, 3, 3, 3],
-        #  'n_enc': [256, 64, 16, 8, 4],
-        #  'f_dec': [3, 3, 3, 3, 3],
-        #  'n_dec': [4, 8, 16, 64, 226],
-        #  'f_conv': [3, 3, 1],
-        #  'ups': gc.WEI,
-        #  'downs': gc.WEI},
-        # {'type': 'AutoConv',
-        #  'f_enc': [1, 1, 1, 1, 1, 2, 2, 2, 2],
-        #  'kernel_enc': 6,
-        #  'f_dec': [2, 2, 1],
-        #  'kernel_dec': 6}
          ]
 
 
@@ -245,15 +200,6 @@ if __name__ == '__main__':
     Gs['params'] = G_params
     Gs['pert'] = 30
 
-    # G_params_y = {}
-    # G_params_y['type'] = G_params['type']
-    # G_params_y['N'] = G_params['N'] - 30
-    # G_params_y['k'] = G_params['k']
-    # G_params_y['p'] = G_params['p']
-    # G_params_y['q'] = G_params['q']
-    # G_params_y['type_z'] = G_params['type_z']
-    # Gs['params_y'] = G_params_y
-
     # Signals
     Signals = {}
     Signals['L'] = 6
@@ -265,22 +211,12 @@ if __name__ == '__main__':
     Signals['neg_coeffs'] = False
     Signals['test_only'] = True
 
-    # SHEL 1
-    # Parámetros previos
     Net = {}
-    # Net['laf'] = nn.Tanh()
-    # Net['af'] = nn.Tanh()
-    # Net['lr'] = 0.001  # 0.001
-    # Net['dr'] = 1  # 0.9 
-    # Net['batch'] = 50  # 10
-    # Net['epochs'] = 50
-    # Net['non_dec'] = 10
-
     Net['laf'] = nn.Tanh()
     Net['af'] = nn.Tanh()
-    Net['lr'] = 0.001  # 0.001
-    Net['dr'] = 0.9  # 0.9 
-    Net['batch'] = 10  # 10
+    Net['lr'] = 0.001
+    Net['dr'] = 0. 
+    Net['batch'] = 10
     Net['epochs'] = 100
     Net['non_dec'] = 10
 
