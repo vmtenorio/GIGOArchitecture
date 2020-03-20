@@ -23,7 +23,7 @@ N_CPUS = cpu_count()
 # Data parameters
 signals = {}
 signals['N_samples'] = 2000
-signals['N_graphs'] = 16
+signals['N_graphs'] = 20
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
@@ -97,10 +97,10 @@ C_list = [[],
           [2, 8, 1]]
 
 # Test n2 paper -- Add noise
-# param_list = [0, .025, .05, 0.75, .1]
+param_list = [0, .025, .05, 0.075, .1]
 
 # Test n3 paper -- Perturb links
-param_list = [5, 10, 15, 20]
+# param_list = [5, 10, 15, 20]
 
 
 def test_model(id, signals, nn_params, model_params):
@@ -145,21 +145,21 @@ def test_arch(signals, nn_params, model_params):
           nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['C'],
           signals['noise'], signals['eps1']))
 
-    pool = Pool(processes=N_CPUS)
-
-    results = []
-    for ng in range(signals['N_graphs']):
-        results.append(pool.apply_async(test_model,
-                        args=[ng, signals, nn_params, model_params]))
-
     mean_errs = np.zeros(signals['N_graphs'])
     mse_losses = np.zeros(signals['N_graphs'])
     med_errs = np.zeros(signals['N_graphs'])
     t_conv = np.zeros(signals['N_graphs'])
     epochs_conv = np.zeros(signals['N_graphs'])
-    for ng in range(signals['N_graphs']):
-        # No problem in overriding n_params, as it has always the same value
-        mse_losses[ng], mean_errs[ng], med_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
+
+    with Pool(processes=N_CPUS) as pool:
+        results = []
+        for ng in range(signals['N_graphs']):
+            results.append(pool.apply_async(test_model,
+                            args=[ng, signals, nn_params, model_params]))
+
+        for ng in range(signals['N_graphs']):
+            # No problem in overriding n_params, as it has always the same value
+            mse_losses[ng], mean_errs[ng], med_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
 
     mse_loss = np.median(mse_losses)
     mean_err = np.median(mean_errs)
@@ -173,8 +173,8 @@ def test_arch(signals, nn_params, model_params):
     ))
     print("-----------------------------------------------------------------------------------")
 
-    if not os.path.isfile('./out_exps.csv'):
-        outf = open('out_exps.csv', 'w')
+    if not os.path.isfile('./out_links_noise.csv'):
+        outf = open('out_links_noise.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
                    'Perturbation|L filter|Noise|' +
                    'F in|F out|K in|K out|C|' +
@@ -183,7 +183,7 @@ def test_arch(signals, nn_params, model_params):
                    'Num Params|MSE loss|Mean err|Median err|STD Median err|' +
                    'Mean t convergence|Mean epochs convergence\n')
     else:
-        outf = open('out_exps.csv', 'a')
+        outf = open('out_links_noise.csv', 'a')
     outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
             "LinksPert", N, k, signals['N_samples'], signals['N_graphs'],
             signals['eps1'], signals['L_filter'], signals['noise'],
@@ -200,9 +200,9 @@ def test_arch(signals, nn_params, model_params):
 if __name__ == "__main__":
 
     for p in param_list:
-        signals['eps1'] = p
-        signals['eps2'] = p
-        # signals['noise'] = p
+        #signals['eps1'] = p
+        #signals['eps2'] = p
+        signals['noise'] = p
         for i in range(len(Fo_list)):
             nn_params['Ki'] = K_list[i]
             nn_params['Ko'] = K_list[i]

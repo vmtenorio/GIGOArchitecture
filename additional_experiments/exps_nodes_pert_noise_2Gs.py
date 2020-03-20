@@ -8,7 +8,7 @@ sys.path.append('..')
 from graph_enc_dec.model import Model, ADAM
 
 from graph_enc_dec import data_sets
-from GIGO.arch import BasicArch, MLP, ConvNN
+from GIGO.arch import GIGOArch
 
 from multiprocessing import Pool, cpu_count
 
@@ -19,16 +19,13 @@ N_CPUS = cpu_count()
 
 # Parameters
 
+# Data parameters
 signals = {}
 signals['N_samples'] = 2000
-signals['N_graphs'] = 16
+signals['N_graphs'] = 20
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
-
-signals['perm'] = True
-signals['median'] = True
-signals['pert'] = 30
 
 # Graph parameters
 G_params = {}
@@ -43,45 +40,31 @@ G_params['q'] = [[0, 0.0075, 0, 0.0],
 G_params['type_z'] = data_sets.RAND
 signals['g_params'] = G_params
 
+signals['perm'] = True
+
+signals['median'] = True
+signals['pert'] = 30
 Nout = N - signals['pert']
 
-EXPS = [
-    {
-        'arch_type': 'linear',
-        'F': [N, Nout],
-        'K': "N/A",
-        'M': "N/A",
-        'nonlin': None
-    },
-    {
-        'arch_type': 'mlp',
-        'F': [N, Nout],
-        'K': "N/A",
-        'M': "N/A",
-        'nonlin': nn.Tanh
-    },
-    {
-        'arch_type': 'mlp',
-        'F': [N, 2, Nout],
-        'K': "N/A",
-        'M': "N/A",
-        'nonlin': nn.Tanh
-    },
-    {
-        'arch_type': 'conv',
-        'F': [1, 4, 8, 8, 4, 1],
-        'K': 3,
-        'M': [1, Nout],
-        'nonlin': nn.Tanh
-    },
-    {
-        'arch_type': 'basic',
-        'F': [1, 4, 8, 8, 4, 1],
-        'K': 3,
-        'M': [1, Nout],
-        'nonlin': nn.Tanh
-    }
-]
+# NN Parameters
+nn_params = {}
+nn_params['Fi'] = [1, 2, 4, 8, Nout]
+nn_params['Fo'] = [N, 8, 4, 2, 1]
+nn_params['Ki'] = 2
+nn_params['Ko'] = 2
+nn_params['C'] = []
+nonlin_s = "tanh"
+if nonlin_s == "relu":
+    nn_params['nonlin'] = nn.ReLU
+elif nonlin_s == "tanh":
+    nn_params['nonlin'] = nn.Tanh
+elif nonlin_s == "sigmoid":
+    nn_params['nonlin'] = nn.Sigmoid
+else:
+    nn_params['nonlin'] = None
+nn_params['last_act_fn'] = nn.Tanh
+nn_params['batch_norm'] = False
+nn_params['arch_info'] = ARCH_INFO
 
 # Model parameters
 model_params = {}
@@ -95,11 +78,27 @@ model_params['eval_freq'] = 4
 model_params['max_non_dec'] = 10
 model_params['verbose'] = VERB
 
+# Hyperparameters tuning
+
+# Fi_list = [[1, 2, 4, 8, Nout],
+#            [1, 2, 4, 8, Nout]]
+
+K_list = [2, 3, 2]
+
+Fo_list = [[N, 8, 4, 2, 1],
+           [N, 8, 4, 2, 1],
+           [N, 8, 4, 2, 2]]
+
+C_list = [[],
+          [],
+          [2, 8, 1]]
+
 # Test n1 paper -- Deleting nodes
 # param_list = [10, 20, 30, 40, 50]
 
 # Test n2 paper -- Adding noise
 param_list = [0, .025, .05, 0.075, .1]
+
 
 def test_model(id, signals, nn_params, model_params):
     Gx, Gy = data_sets.nodes_perturbated_graphs(signals['g_params'], signals['pert'],
@@ -113,17 +112,13 @@ def test_model(id, signals, nn_params, model_params):
     data.add_noise(signals['noise'], test_only=signals['test_only'])
     data.to_tensor()
 
-    if nn_params['arch_type'] == "basic":
-        Gx.compute_laplacian('normalized')
-        archit = BasicArch(Gx.L.todense(), nn_params['F'], nn_params['K'], nn_params['M'], nn_params['nonlin'], ARCH_INFO)
-    elif nn_params['arch_type'] == "mlp":
-        archit = MLP(nn_params['F'], nn_params['nonlin'], ARCH_INFO)
-    elif nn_params['arch_type'] == "conv":
-        archit = ConvNN(N, nn_params['F'], nn_params['K'], nn_params['nonlin'], nn_params['M'], ARCH_INFO)
-    elif nn_params['arch_type'] == "linear":
-        archit = MLP(nn_params['F'], nn_params['nonlin'], ARCH_INFO)
-    else:
-        raise RuntimeError("arch_type has to be either basic, mlp or conv")
+    Gx.compute_laplacian('normalized')
+    Gy.compute_laplacian('normalized')
+
+    archit = GIGOArch(Gx.L.todense(), Gy.L.todense(),
+                      nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
+                      nn_params['nonlin'], nn_params['last_act_fn'], nn_params['batch_norm'],
+                      nn_params['arch_info'])
 
     model_params['arch'] = archit
 
@@ -135,13 +130,16 @@ def test_model(id, signals, nn_params, model_params):
 
     print("DONE {}: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
         id, mse, mean_err, med_err, model.count_params(), round(t_conv, 4), epochs
-    ), flush=True)
+    ))
+
     return mse, mean_err, med_err, model.count_params(), t_conv, epochs
 
-def test_exp(signals, nn_params, model_params):
-    print("Testing: Arch type = {}, F = {}, K = {}, M = {}, Noise = {}, Pert = {}".format( \
-        nn_params['arch_type'], nn_params['F'], nn_params['K'], nn_params['M'],
-        signals['noise'], signals['pert']))
+
+def test_arch(signals, nn_params, model_params):
+
+    print("Testing: Fi = {}, Fo = {}, K = {}, C = {}, Noise = {}, Pert = {}".format(\
+          nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['C'],
+          signals['noise'], signals['pert']))
 
     mean_errs = np.zeros(signals['N_graphs'])
     mse_losses = np.zeros(signals['N_graphs'])
@@ -153,7 +151,7 @@ def test_exp(signals, nn_params, model_params):
         results = []
         for ng in range(signals['N_graphs']):
             results.append(pool.apply_async(test_model,
-                                            args=[ng, signals, nn_params, model_params]))
+                            args=[ng, signals, nn_params, model_params]))
 
         for ng in range(signals['N_graphs']):
             # No problem in overriding n_params, as it has always the same value
@@ -165,52 +163,63 @@ def test_exp(signals, nn_params, model_params):
     std_err = np.std(med_errs)
     mean_t_conv = round(np.mean(t_conv), 6)
     mean_ep_conv = np.mean(epochs_conv)
-    #print("-----------------------------------------------------------------------------------")
+    print("-----------------------------------------------------------------------------------")
     print("DONE Test: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
         mse_loss, mean_err, median_err, n_params, mean_t_conv, mean_ep_conv
     ))
     print("-----------------------------------------------------------------------------------")
 
-    if not os.path.isfile('./out_basic.csv'):
-        outf = open('out_basic.csv', 'w')
+    if not os.path.isfile('./out_nodes_noise.csv'):
+        outf = open('out_nodes_noise.csv', 'w')
         outf.write('Experiment|Nodes|Communities|N samples|N graphs|' +
                    'Perturbation|L filter|Noise|' +
-                   'F|K|M|' +
-                   'Non Lin|' +
+                   'F in|F out|K in|K out|C|' +
+                   'Non Lin|Last Act Func|' +
                    'Batch size|Learning Rate|' +
                    'Num Params|MSE loss|Mean err|Median err|STD Median err|' +
                    'Mean t convergence|Mean epochs convergence\n')
     else:
-        outf = open('out_basic.csv', 'a')
-    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
-        "NodesPert", N, k, signals['N_samples'], signals['N_graphs'],
-        signals['pert'], signals['L_filter'], signals['noise'],
-        nn_params['F'], nn_params['K'], nn_params['M'],
-        nn_params['nonlin'],
-        model_params['batch_size'], model_params['learning_rate'],
-        n_params, mse_loss, mean_err, median_err, std_err,
-        mean_t_conv, mean_ep_conv))
+        outf = open('out_nodes_noise.csv', 'a')
+    outf.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(
+            "NodesPert", N, k, signals['N_samples'], signals['N_graphs'],
+            signals['pert'], signals['L_filter'], signals['noise'],
+            nn_params['Fi'], nn_params['Fo'], nn_params['Ki'], nn_params['Ko'], nn_params['C'],
+            nn_params['nonlin'], nn_params['last_act_fn'],
+            model_params['batch_size'], model_params['learning_rate'],
+            n_params, mse_loss, mean_err, median_err, std_err,
+            mean_t_conv, mean_ep_conv))
     outf.close()
 
-    return np.median(med_errs)  # Keeping the one with the best median error
+    return np.median(med_errs)        # Keeping the one with the best median error
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+
     for p in param_list:
         # signals['pert'] = p
         # Nout = N - p
+        # nn_params['Fi'][-1] = Nout
         signals['noise'] = p
-        for exp in EXPS:
+        for i in range(len(Fo_list)):
+            nn_params['Ki'] = K_list[i]
+            nn_params['Ko'] = K_list[i]
+            nn_params['Fo'] = Fo_list[i]
+            nn_params['C'] = C_list[i]
+            err = test_arch(signals, nn_params, model_params)
 
-            if exp['arch_type'] == "basic":
-                exp['M'][-1] = Nout
-            elif exp['arch_type'] == "mlp":
-                exp['F'][-1] = Nout
-            elif exp['arch_type'] == "conv":
-                exp['M'][-1] = Nout
-            elif exp['arch_type'] == "linear":
-                exp['F'][-1] = Nout
-            else:
-                raise RuntimeError("arch_type has to be either basic, mlp or conv")
 
-            test_exp(signals, exp, model_params)
+#############################################
+# Test n1 paper: Delete nodes
+
+# param_list = [10, 20, 30, 40, 50]
+
+# signals['pert'] = p
+# Nout = N - p
+# nn_params['Fi'] = [1, int(Nout/2), Nout]
+
+#############################################
+# Test n2 paper: add noise to the signal
+
+# param_list = [0, .025, .05, 0.75, .1]
+
+# signals['noise'] = p

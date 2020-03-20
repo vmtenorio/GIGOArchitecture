@@ -21,7 +21,7 @@ N_CPUS = cpu_count()
 
 signals = {}
 signals['N_samples'] = 2000
-signals['N_graphs'] = 20
+signals['N_graphs'] = 16
 signals['L_filter'] = 6
 signals['noise'] = 0
 signals['test_only'] = True
@@ -115,10 +115,10 @@ model_params['max_non_dec'] = 10
 model_params['verbose'] = VERB
 
 # Test n2 paper -- Add noise
-# param_list = [0, .025, .05, 0.75, .1]
+param_list = [0, .025, .05, 0.075, .1]
 
 # Test n3 paper -- Perturb links
-param_list = [5, 10, 15, 20]
+# param_list = [5, 10, 15, 20]
 
 def test_model(id, signals, nn_params, model_params):
     Gx, Gy = data_sets.perturbated_graphs(signals['g_params'], signals['eps1'], signals['eps2'],
@@ -148,7 +148,6 @@ def test_model(id, signals, nn_params, model_params):
     model_params['arch'] = archit
 
     model = Model(**model_params)
-    print("Numero de parametros " + str(model.count_params()))
     t_init = time.time()
     epochs, _, _ = model.fit(data.train_X, data.train_Y, data.val_X, data.val_Y)
     t_conv = time.time() - t_init
@@ -156,7 +155,7 @@ def test_model(id, signals, nn_params, model_params):
 
     print("DONE {}: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
         id, mse, mean_err, med_err, model.count_params(), round(t_conv, 4), epochs
-    ))
+    ), flush=True)
     return mse, mean_err, med_err, model.count_params(), t_conv, epochs
 
 def test_exp(signals, nn_params, model_params):
@@ -164,21 +163,21 @@ def test_exp(signals, nn_params, model_params):
         nn_params['arch_type'], nn_params['F'], nn_params['K'], nn_params['M'],
         signals['noise'], signals['eps1']))
 
-    pool = Pool(processes=N_CPUS)
-
-    results = []
-    for ng in range(signals['N_graphs']):
-        results.append(pool.apply_async(test_model,
-                                        args=[ng, signals, nn_params, model_params]))
-
     mean_errs = np.zeros(signals['N_graphs'])
     mse_losses = np.zeros(signals['N_graphs'])
     med_errs = np.zeros(signals['N_graphs'])
     t_conv = np.zeros(signals['N_graphs'])
     epochs_conv = np.zeros(signals['N_graphs'])
-    for ng in range(signals['N_graphs']):
-        # No problem in overriding n_params, as it has always the same value
-        mse_losses[ng], mean_errs[ng], med_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
+
+    with Pool(processes=N_CPUS) as pool:
+        results = []
+        for ng in range(signals['N_graphs']):
+            results.append(pool.apply_async(test_model,
+                                            args=[ng, signals, nn_params, model_params]))
+
+        for ng in range(signals['N_graphs']):
+            # No problem in overriding n_params, as it has always the same value
+            mse_losses[ng], mean_errs[ng], med_errs[ng], n_params, t_conv[ng], epochs_conv[ng] = results[ng].get()
 
     mse_loss = np.median(mse_losses)
     mean_err = np.median(mean_errs)
@@ -186,7 +185,7 @@ def test_exp(signals, nn_params, model_params):
     std_err = np.std(med_errs)
     mean_t_conv = round(np.mean(t_conv), 6)
     mean_ep_conv = np.mean(epochs_conv)
-    print("-----------------------------------------------------------------------------------")
+    #print("-----------------------------------------------------------------------------------")
     print("DONE Test: MSE={} - Mean Err={} - Median Err={} - Params={} - t_conv={} - epochs={}".format(
         mse_loss, mean_err, median_err, n_params, mean_t_conv, mean_ep_conv
     ))
@@ -219,8 +218,8 @@ def test_exp(signals, nn_params, model_params):
 if __name__ == '__main__':
 
     for p in param_list:
-        signals['eps1'] = p
-        signals['eps2'] = p
-        # signals['noise'] = p
+        # signals['eps1'] = p
+        # signals['eps2'] = p
+        signals['noise'] = p
         for exp in EXPS:
             test_exp(signals, exp, model_params)
