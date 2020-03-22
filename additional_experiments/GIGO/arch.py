@@ -63,7 +63,7 @@ class GIGOArch(nn.Module):
             gfli.append(layers.GraphFilterUp(self.Si, self.Fi[l], self.Fi[l+1], self.Ki))
             gfli.append(self.nonlin())
             if self.batch_norm:
-                gfli.append(nn.BatchNorm1d(self.Ni))
+                gfli.append(nn.BatchNorm1d(self.Fi[l+1]))
             self.l_param.append('weights_gfi_' + str(l))
             self.l_param.append('bias_gfi_' + str(l))
 
@@ -77,7 +77,7 @@ class GIGOArch(nn.Module):
             gflo.append(layers.GraphFilterDown(self.So, self.Fo[l], self.Fo[l+1], self.Ko))
             gflo.append(self.nonlin())
             if self.batch_norm:
-                gfli.append(nn.BatchNorm1d(self.No))
+                gfli.append(nn.BatchNorm1d(self.Fo[l+1]))
             self.l_param.append('weights_gfo_' + str(l))
             self.l_param.append('bias_gfo_' + str(l))
 
