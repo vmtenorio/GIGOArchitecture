@@ -215,7 +215,7 @@ if __name__ == '__main__':
     Net['laf'] = nn.Tanh()
     Net['af'] = nn.Tanh()
     Net['lr'] = 0.001
-    Net['dr'] = 0. 
+    Net['dr'] = 0.9
     Net['batch'] = 10
     Net['epochs'] = 100
     Net['non_dec'] = 10
